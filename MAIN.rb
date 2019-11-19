@@ -34,3 +34,9 @@ git branch <name>
 git log --oneline --decorate
 # Переключение ветки
 git checkout
+# Просмотр истории коммитов и ветвления проекта
+git log --oneline --decorate --graph --all
+# Создание или (и) переключение на новую ветку
+git checkout -b <name>
+git branch <name>
+git checkout <name>
