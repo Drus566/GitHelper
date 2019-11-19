@@ -40,3 +40,9 @@ git log --oneline --decorate --graph --all
 git checkout -b <name>
 git branch <name>
 git checkout <name>
+# Удаление ветки
+git branch -d <name>
+# Просмотр конфилкта слияния
+git status
+# Графический инструмент разрешения конфликтов
+git mergetool
