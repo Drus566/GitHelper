@@ -145,4 +145,4 @@ git push origin --delete <branch name>
 
 # Перебазирование - взять все изменения, которые были зафиксированы в одной ветке и применить
 # их к другой ветке
-git rebase master
+git rebase <branch name>
