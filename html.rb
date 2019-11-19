@@ -1,1 +1,3 @@
-<doc>GGWP<doc>
+
+<doc>GGWPx2</doc>
+
