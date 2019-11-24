@@ -7,12 +7,20 @@ git add .
 ### Коммит
 git commit -m "GGWP"
 
-### При изменении файлы, но ты хочешь чтобы результат вошел в предыдущий коммит
+### При изменении файла, но ты хочешь чтобы результат вошел в предыдущий коммит
 git commit --ammend
 
 ### Удаление коммита
 git reset --hard HEAD~1
 git reset --hard <commit-hash>
+
+### Восстановление коммита
+git reflog
+...видим список удаленных коммитов, выбираем нужный 
+git reset --hard <commit-hash>
+...или
+git reset hard HEAD@{<commit-number>}
+
 
 ### Удалить индекс
 git rm 
@@ -42,6 +50,8 @@ git log
 
 ### Просмотр изменений 
 git diff
+git diff --cached
+git diff --staged
 
 ### Создание ветки 
 git branch <name>
@@ -217,3 +227,22 @@ cd /opt/git
 mkdir project.git
 cd project.git
 git init --bare
+
+### Список ненужных пробелов перед коммитом
+git diff --check
+
+### Если изменения касаются одного файла, то это для частичного добавления файлов в индекс
+git add --patch
+
+### История коммитов 
+git log --no-merges
+
+### Слияние изменений с сервера
+git fetch origin
+git merge origin/master
+
+### Отображение списков коммитов, которые существуют в последней ветке, но отсутствуют в первой 
+git log --no-merges <имя верхней ветки>..<имя последней ветки>
+
+
+
