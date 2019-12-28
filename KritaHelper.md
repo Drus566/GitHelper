@@ -1,1 +1,1 @@
-Zoom: space + ctrl and left mouse
+`Zoom:` space + ctrl and left mouse
