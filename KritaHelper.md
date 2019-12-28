@@ -24,6 +24,7 @@
 * Expand workspace `W`
 * Gives a layer by color `R`
 * Canvas only `Tab`
+* Fill mode krita `Ctrl + shift + F`
 ### Size, opacity, shade
 * Change shade `K L`
 * Change opacity `I O`
@@ -34,3 +35,4 @@
 * Saving as `F4`
 * Brush engine `F5`
 * Choose brush `F6`
+
