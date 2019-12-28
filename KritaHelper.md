@@ -23,7 +23,14 @@
 * Change to black color `D`
 * Expand workspace `W`
 * Gives a layer by color `R`
+* Canvas only `Tab`
 ### Size, opacity, shade
 * Change shade `K L`
 * Change opacity `I O`
 * Size: `shift + left mouse` or `[ ]`
+### F1...
+* Docs `F1`
+* Layer properties `F3`
+* Saving as `F4`
+* Brush engine `F5`
+* Choose brush `F6`
