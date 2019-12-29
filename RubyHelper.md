@@ -69,6 +69,73 @@ MARKER
 * `1 <=> 1` => 0, values are equal
 * `1 <=> 2` => -1, left value less
 * `2 <=> 1` => 1, left value greater
+## Control structures
+### conditions
+* `x = if a > 0 then b else c end
+* `x == 1 ? puts 'true' : puts 'false'`
+### case
+```
+period = 2.3
+case period
+  when 0 
+    puts 'beginner'
+  when 0..1
+    puts 'junior'
+  when 1..3 
+    puts 'middle'
+  else
+    puts 'super!'
+end
+```
+## Cycles
+### while
+```
+counter = 1
+while counter <= 5
+  puts "iteration #{counter}"
+  counter += 1
+end
+```
+### until 
+```
+counter = 0
+until counter == 5
+  puts 'values of counter #{counter}'
+  counter += 1
+end
+```
+### loop
+```
+loop do
+  # code..
+  break if condition
+end
+
+loop do
+  # code..
+  break unless anticondition
+end
+```
+### times, upto
+```
+n.times do |i|
+  # code...
+end
+
+0.upto(n) do |i|
+  # code... 
+end
+```
+### for, each_index
+```
+for i in 0..10 do
+  # code...
+end
+
+list.each_index do |i|
+  # code...
+end
+```
 ## each and etc enumerators
 ### Get summ of all elements
 * `(5..10).reduce(:+)`                 => 45
