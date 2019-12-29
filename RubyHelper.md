@@ -244,5 +244,29 @@ end
 Book.foo # => 'foo'
 Book.foo.new # => error
 ```
+## Self methods of class
+```
+class MathFunctions 
+
+  def self.double(var) 
+    var * 2 
+  end 
+  
+  class << self  
+    def some_method
+      puts 'ggwp'
+    end 
+  end
+  
+end 
+
+def MathFunctions.triple(var)
+  var * 3 
+end
+
+puts MathFunctions.double 5 # => 10 
+puts MathFunctions.triple(3) # => 9 
+puts MathFunctions.some_method # => 'ggwp' 
+```
 
 
