@@ -30,13 +30,14 @@ ensure
   puts 'Code perform in anyway'
 end
 ```
-### Arifmetic operations
-## Exponent
+## Arifmetic operations
+### Exponent
 `2 ** 5` => 32
 ## Strings
 * `string1 = %q[Escapes any quotation marks, but doesn't understend \n]`
 * `string = %q(things)`
 * `string2 = %Q[Escapes any quotation marks and understend \n]`
+* `array_of_strings = %w(apple orange coconut)`
 ### Command of linux 
 * ``` string3 = `ls -a` ```
 ### Documents
@@ -47,9 +48,17 @@ may be
 any
 MARKER
 ```
+### Gsub
+```
+"hello".gsub(/[aeiou]/, '*')                  # => "h*ll*"
+"hello".gsub(/([aeiou])/, '<\1>')             # => "h<e>ll<o>"
+"hello".gsub(/./) {|s| s.ord.to_s + ' '}      # => "104 101 108 108 111 "
+"hello".gsub(/(?<foo>[aeiou])/, '{\k<foo>}')  # => "h{e}ll{o}"
+'hello'.gsub(/[eo]/, 'e' => 3, 'o' => '*')    # => "h3ll*"
+```
 ## Symbols
 ### Create
-`array_of_symbols = %i(abc)`
+`array_of_symbols = %i(a b c)`
 ## Array
 ### Create
 * `empty_arr = Array.new(5)` => [nil,nil,nil,nil,nil]
