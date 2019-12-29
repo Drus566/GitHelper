@@ -5,12 +5,36 @@
 comment 
 =end
 ```
+## Terminal output
+### Output for array
+`print`
+## Variables and constants
+### Global
+`$pass = 'qwerty'`
+### Constant
+`PI = 3.14`
+### Parallel assignment
+`a = b = c = 42`
+### Multiple assignment
+`a,b,c = 0, 9, 3`
+## Handle errors
+```
+begin
+  raise NoMemoryError, 'Out of memory'
+rescue NoMemoryError => exception_variable
+  puts 'Error OnMemoryError', exception_variable
+else 
+  puts 'Code perform without errors'
+ensure
+  puts 'Code perform in anyway'
+end
+```
 ## each and etc enumerators
 ### Get summ of all elements
 * `(5..10).reduce(:+)`                 => 45
 * `(5..10).inject {|sum, n| sum + n}`   => 45
 ### Create array
-* `ruby (1..4).map { |i| i*i }` => [1,4,9,16]
+* `(1..4).map { |i| i*i }` => [1,4,9,16]
 * `(1..4).collect { "cat" }` => ["cat","cat","cat","cat"]
 
 
