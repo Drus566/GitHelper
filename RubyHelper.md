@@ -33,9 +33,10 @@ end
 ## Exponent
 `2 ** 5` => 32
 ### Strings
-`string1 = %q[Escapes any quotation marks, but doesn't understend \n]`
-`string2 = %Q[Escapes any quotation marks and understend \n]`
-`string3 = \`\``
+* `string1 = %q[Escapes any quotation marks, but doesn't understend \n]`
+* `string2 = %Q[Escapes any quotation marks and understend \n]`
+### Command of linux 
+* ``` string3 = `ls -a` ```
 ## each and etc enumerators
 ### Get summ of all elements
 * `(5..10).reduce(:+)`                 => 45
