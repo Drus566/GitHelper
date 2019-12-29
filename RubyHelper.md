@@ -1,3 +1,5 @@
+
+[TOC]
 # Base
 ## Comments
 ### Multiline
