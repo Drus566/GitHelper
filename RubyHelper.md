@@ -169,6 +169,79 @@ end
 
 surround { puts 'hello world' }
 ```
+# Ruby OOP
+## Variables
+`@@` - variable of class
+`@` - variable of instance 
+```
+class Human
+  @@species = "H.sappiens" # variable of class
+  NAME = "Humas Class" # constant of class
+  
+  def initialize(name, age = 0)
+    @name = name # variables of instance
+    @age = age
+  end
+  
+  def species # getter for @@species
+    @@species 
+  end
+  
+  def name=(name) # setter for @name
+    @name = name 
+  end
+  
+  def name # getter for @name
+    @name
+  end
+  
+  attr_reader :name, :age # getters for variables of instace
+  attr_writers :name, :age # setters for variables of instace
+  attr_accessor :name, :age # include getters and setters 
+  
+  def self.say # method of class, call method Human.say
+    puts 'ggwp'
+  end
+end
+```
+## Inheritance
+```
+class Doctor < Human
+  def examinePatient 
+    # ...
+  end
+  
+  def method1 # override parent method
+    super.method1() # call parent method
+    # ... 
+  end
+end
+```
+## Modules
+```
+module ModuleExample 
+  def foo
+    'foo'
+  end
+end
+```
+### include
+```
+class Person
+  include ModuleExample
+end
 
+Person.foo # => error
+Person.new.foo # => 'foo'
+```
+### extend
+```
+class Book
+  extend ModuleExample
+end
+
+Book.foo # => 'foo'
+Book.foo.new # => error
+```
 
 
