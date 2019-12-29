@@ -35,6 +35,7 @@ end
 `2 ** 5` => 32
 ## Strings
 * `string1 = %q[Escapes any quotation marks, but doesn't understend \n]`
+* `string = %q(things)`
 * `string2 = %Q[Escapes any quotation marks and understend \n]`
 ### Command of linux 
 * ``` string3 = `ls -a` ```
@@ -46,6 +47,9 @@ may be
 any
 MARKER
 ```
+## Symbols
+### Create
+`array_of_symbols = %i(abc)`
 ## Array
 ### Create
 * `empty_arr = Array.new(5)` => [nil,nil,nil,nil,nil]
@@ -86,6 +90,16 @@ case period
     puts 'middle'
   else
     puts 'super!'
+end
+```
+```
+case 20
+when 1..20
+  puts "Between 1 & 20"
+when 21..40
+  puts "Between 21 & 40"
+else
+  puts "Not within a valid range"
 end
 ```
 ## Cycles
@@ -144,6 +158,15 @@ end
 ### Create array
 * `(1..4).map { |i| i*i }` => [1,4,9,16]
 * `(1..4).collect { "cat" }` => ["cat","cat","cat","cat"]
+### Flatten
+```
+s = [ 1, 2, 3 ]           #=> [1, 2, 3]
+t = [ 4, 5, 6, [7, 8] ]   #=> [4, 5, 6, [7, 8]]
+a = [ s, t, 9, 10 ]       #=> [[1, 2, 3], [4, 5, 6, [7, 8]], 9, 10]
+a.flatten                 #=> [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+a = [ 1, 2, [3, [4, 5] ] ]
+a.flatten(1)
+```
 ## Functions
 ``` 
 def double(x)
@@ -169,6 +192,14 @@ def surround
 end
 
 surround { puts 'hello world' }
+```
+## Regular expressions
+### create
+`regular_expression = %r([0-9])`
+### match
+```
+"aaaa1".match?(/[0-9]/) # => true
+"".match?(/[0-9]/) # => false
 ```
 # OOP
 ## Variables
