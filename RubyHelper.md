@@ -170,7 +170,7 @@ end
 
 surround { puts 'hello world' }
 ```
-# Ruby OOP
+# OOP
 ## Variables
 `@@` - variable of class
 `@` - variable of instance 
