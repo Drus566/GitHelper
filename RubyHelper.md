@@ -1,11 +1,3 @@
-
-
-
-# Table of Contents
-1. [Base](#Base)
-1.2 [Comments](###Multiline)
-1.3 [Terminal output](##Terminal output)
-
 # Base
 ## Comments
 ### Multiline
@@ -113,6 +105,7 @@ case period
     puts 'super!'
 end
 ```
+or
 ```
 case 20
 when 1..20
@@ -122,6 +115,31 @@ when 21..40
 else
   puts "Not within a valid range"
 end
+```
+or
+```
+name = 'Fisher'
+case name # вторая особенность
+  when /fish/i then puts "Есть что-то рыбное"
+  when 'Смит' then puts "Ваше имя Смит"
+end
+```
+### === 
+```
+if /lan/ === "language"
+  puts "Тройной знак равенства"
+end
+# => Тройной знак равенства
+
+if "language" === "language"
+  puts "тоже работает"
+end
+# => тоже работает
+
+if Integer === 21
+  puts "21 является целым числом"
+end
+# => 21 является целым числом
 ```
 ## Cycles
 ### while
@@ -220,6 +238,14 @@ end
 
 foo("arg1",2,false) # => ["arg1", 2, false]
 ```
+or
+```
+def max(one_param, *numbers, another)
+  numbers.max
+end
+
+puts max("что-то", 6, 31, -5, "еще") # => 31
+```
 ### yield (function get block of code though yield)
 ```
 def surround
@@ -277,6 +303,70 @@ puts ({ :one => "one" }) # => {:one=>"one"}
 
 # Или вообще отбросить {}... 
 puts one: "one" # => {:one=>"one"}
+```
+## File
+### Read
+```
+File.foreach ( 'test.txt' ) do |line|
+  puts line
+  p line
+  p line.chomp # отсекает символ новой строки
+  p line.split # массив слов строки
+end
+```
+### Reading an unknown file
+```
+begin
+
+  File.foreach ( 'do_not_exist.txt' ) do |line|
+    puts line.chomp
+  end
+
+rescue Exception => e
+  puts e.message
+  puts "Давайте притворимся, что этого не было"
+end
+```
+or
+```
+if File.exist? 'test.txt'
+
+  File.foreach( 'test.txt' ) do |line|
+    puts line.chomp
+  end
+
+end
+```
+### Write 
+```
+File.open("test1.txt", "w") do |file|
+  file.puts "Первая строка"
+  file.puts "Вторая строка"
+end
+```
+## Blocks
+### Impilicit block
+```
+def two_times_implicit
+  return "Нет блока" unless block_given?
+  yield
+  yield
+end
+
+puts two_times_implicit { print "Привет " } # => "Привет Привет"
+puts two_times_implicit # => Нет блока
+```
+### Explicit block
+```
+def two_times_explicit (&i_am_a_block)
+  return "Нет блока" if i_am_a_block.nil?
+  i_am_a_block.call
+  i_am_a_block.call
+end
+
+puts two_times_explicit # => Нет блока
+two_times_explicit { puts "Привет" } # => Привет
+                                     # => Привет
 ```
 # OOP
 ## Variables
