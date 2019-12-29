@@ -12,6 +12,7 @@
 * Fill `F`
 * Multibrush `Q`
 * Transform `T`
+* Erase layer `Del`
 ### Features
 * Palette popup `H` and `U`
 * Color change on alternative `X`
