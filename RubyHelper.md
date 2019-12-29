@@ -1,4 +1,10 @@
-## 
+## Comments
+### Multiline
+```
+=begin
+comment 
+=end
+```
 ## each and etc enumerators
 ### Get summ of all elements
 * `(5..10).reduce(:+)`                 => 45
