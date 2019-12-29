@@ -3,7 +3,7 @@
 
 # Table of Contents
 1. [Base](#Base)
-1.2 [Comments](##Comments)
+1.2 [Comments](###Multiline)
 1.3 [Terminal output](##Terminal output)
 
 # Base
