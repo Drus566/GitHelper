@@ -45,7 +45,30 @@ may be
 any
 MARKER
 ```
-
+## Array
+### Create
+* `empty_arr = Array.new(5)` => [nil,nil,nil,nil,nil]
+* `true_arr = Array.new(5,true)` => [true,true,true,true,true]
+### Get element
+* `my_array.[] 1` => get element with index 1
+* `my_array.valuest_at(1,2,3,1..2)`
+* `my_array.take(3)`
+### Add
+* `test_array.push(3)` => in end
+* `test_array.unshift(5)` => in begin
+* `test_array.insert(3, 32, 90)` => in 3 position
+### Delete
+* `array.pop` => last element
+* `array.shift` => first element
+* `array.delete_at(4)` => indicated position
+* `array.delete(2)` => concrete value
+* `array.compact` => delete nil
+* `array.uniq` => delete duplicate values
+## Logic expressions
+* `!0` => false
+* `1 <=> 1` => 0, values are equal
+* `1 <=> 2` => -1, left value less
+* `2 <=> 1` => 1, left value greater
 ## each and etc enumerators
 ### Get summ of all elements
 * `(5..10).reduce(:+)`                 => 45
