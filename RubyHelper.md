@@ -56,6 +56,8 @@ MARKER
 "hello".gsub(/(?<foo>[aeiou])/, '{\k<foo>}')  # => "h{e}ll{o}"
 'hello'.gsub(/[eo]/, 'e' => 3, 'o' => '*')    # => "h3ll*"
 ```
+### Note
+* `String methods ending with "!" modify an existing string`
 ## Symbols
 ### Create
 `array_of_symbols = %i(a b c)`
@@ -78,6 +80,8 @@ MARKER
 * `array.delete(2)` => concrete value
 * `array.compact` => delete nil
 * `array.uniq` => delete duplicate values
+### Sample
+* `p a.sample(2) # => 2 случайных элемента`
 ## Logic expressions
 * `!0` => false
 * `1 <=> 1` => 0, values are equal
@@ -160,13 +164,29 @@ list.each_index do |i|
   # code...
 end
 ```
-## each and etc enumerators
+## Enumerators
 ### Get summ of all elements
 * `(5..10).reduce(:+)`                 => 45
 * `(5..10).inject {|sum, n| sum + n}`   => 45
 ### Create array
 * `(1..4).map { |i| i*i }` => [1,4,9,16]
 * `(1..4).collect { "cat" }` => ["cat","cat","cat","cat"]
+### Each, select, reject, map
+``` 
+a = [1, 3, 4, 7, 8, 10]
+a.each { |num| print num } # => 1347810 (нет новой строки)
+puts # => (с новой строки)
+
+new_arr = a.select { |num| num > 4 }
+p new_arr # => [7, 8, 10]
+new_arr = a.select { |num| num < 10 }
+           .reject{ |num| num.even? }
+p new_arr # => [1, 3, 7]
+
+# Умножить каждый элемент на 3, создав новый массив
+new_arr = a.map {|x| x * 3}
+p new_arr # => [3, 9, 12, 21, 24, 30]
+```
 ### Flatten
 ```
 s = [ 1, 2, 3 ]           #=> [1, 2, 3]
@@ -209,6 +229,46 @@ surround { puts 'hello world' }
 ```
 "aaaa1".match?(/[0-9]/) # => true
 "".match?(/[0-9]/) # => false
+```
+## Range
+### include?, max, ===
+```
+some_range = 1..3
+puts some_range.max # => 3
+puts some_range.include? 2 # => true
+
+puts (1...10) === 5.3 # => true
+puts ('a'...'r') === "r" # => false (конец исключается)
+
+p ('k'..'z').to_a.sample(2) # => ["k", "w"]
+# или другой случайный массив с двумя буквами из диапазона
+```
+### letters
+`'a' .. 'z'`
+### include, exclude
+* `1..5` include 5
+* `1...5` exclude 5
+### Note
+* Can convert to array `to_a`
+## Hash
+### Confusing between hash and block
+```
+# Скажем, у вас есть хэш
+a_hash = { :one => "one" }
+
+# Затем вы выводите его
+puts a_hash # => {:one=>"one"}
+
+# Если вы попытаетесь сделать это за один шаг - вы получите SyntaxError
+# puts { :one => "one" }
+
+# Ruby путается и думает, что {} является блоком!!!
+
+# Чтобы обойти это, вы можете использовать скобки
+puts ({ :one => "one" }) # => {:one=>"one"}
+
+# Или вообще отбросить {}... 
+puts one: "one" # => {:one=>"one"}
 ```
 # OOP
 ## Variables
@@ -307,6 +367,54 @@ end
 puts MathFunctions.double 5 # => 10 
 puts MathFunctions.triple(3) # => 9 
 puts MathFunctions.some_method # => 'ggwp' 
+```
+## Area
+### Methods of current area
+`local_variables`
+### Constants
+```
+module Test
+  PI = 3.14
+  class Test2
+    def what_is_pi
+      puts PI
+    end
+  end
+end
+Test::Test2.new.what_is_pi # => 3.14
+
+module MyModule
+  MyConstant = 'Внешняя константа'
+  class MyClass
+    puts MyConstant # => Внешняя константа
+    MyConstant = 'Внутренняя константа'
+    puts MyConstant # => Внутренняя константа
+  end
+
+  # остается неизменной вне области
+  puts MyConstant # => Внешняя константа
+end
+```
+### Private access
+```
+class Person
+  def initialize(age)
+  	self.age = age # Валидно - исключение
+  	puts my_age
+  	# puts self.my_age # Не валидно
+  	                   # Нельзя использовать self на любом другом получателе
+  end
+
+  private 
+    def my_age
+    	@age
+    end
+    def age=(age)
+      @age = age
+    end
+end
+
+Person.new(24) # => 24
 ```
 
 
