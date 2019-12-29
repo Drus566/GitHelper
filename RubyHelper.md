@@ -143,5 +143,32 @@ end
 ### Create array
 * `(1..4).map { |i| i*i }` => [1,4,9,16]
 * `(1..4).collect { "cat" }` => ["cat","cat","cat","cat"]
+## Functions
+``` 
+def double(x)
+  x*2
+end
+
+double double 4 # => 16
+```
+### splat operator(list of parameters in one array)
+```
+def foo(*array)
+  print array
+end
+
+foo("arg1",2,false) # => ["arg1", 2, false]
+```
+### yield (function get block of code though yield)
+```
+def surround
+  puts "{"
+  yield
+  puts "}"
+end
+
+surround { puts 'hello world' }
+```
+
 
 
