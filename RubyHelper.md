@@ -66,6 +66,21 @@ string               #=> "едем, едем, едем, "
 ### Note
 * `String methods ending with "!" modify an existing string`
 * `[1,2,3,4].to_s(2) показывает в какую систему счисления переводить или sprintf("%b", start_number)` 
+*  Получить значение N-го двоичного разряда данного целого числа: 
+``` 
+start_number, N = 1234, 5
+puts start_number[N]
+```
+* Поменять целочисленные значения двух переменных без использования третьей переменной:
+```
+number_one, number_two = 134, 234
+number_one, number_two = number_two, number_one
+```
+* Округлить число с плавающей запятой до двух разрядов: 
+```
+puts sprintf("%.2f", float_integer).to_f 
+float_integer.round 3 
+```
 ## Symbols
 ### Create
 `array_of_symbols = %i(a b c)`
