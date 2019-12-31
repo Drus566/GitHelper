@@ -65,6 +65,7 @@ string               #=> "едем, едем, едем, "
 ```
 ### Note
 * `String methods ending with "!" modify an existing string`
+* `[1,2,3,4].to_s(2) показывает в какую систему счисления переводить или sprintf("%b", start_number)` 
 ## Symbols
 ### Create
 `array_of_symbols = %i(a b c)`
