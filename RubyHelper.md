@@ -81,6 +81,10 @@ number_one, number_two = number_two, number_one
 puts sprintf("%.2f", float_integer).to_f 
 float_integer.round 3 
 ```
+* Проверка на анаграмму палиндрома
+```
+"АБАВБА".chars.group_by { |l| l }.count { |k, v| v.size.odd? } <= 1
+```
 ## Symbols
 ### Create
 `array_of_symbols = %i(a b c)`
