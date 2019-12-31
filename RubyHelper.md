@@ -284,6 +284,7 @@ p ('k'..'z').to_a.sample(2) # => ["k", "w"]
 * `1...5` exclude 5
 ### Note
 * Can convert to array `to_a`
+* Объекты, имеющие `.succ` называют последовательными: этим методом можно по текущему элементу достоверно определить следующий. 
 ## Hash
 ### Confusing between hash and block
 ```
