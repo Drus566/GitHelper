@@ -56,6 +56,13 @@ MARKER
 "hello".gsub(/(?<foo>[aeiou])/, '{\k<foo>}')  # => "h{e}ll{o}"
 'hello'.gsub(/[eo]/, 'e' => 3, 'o' => '*')    # => "h3ll*"
 ```
+### Addition
+```
+string = "едем"
+string += ", "
+string *= 3
+string               #=> "едем, едем, едем, "
+```
 ### Note
 * `String methods ending with "!" modify an existing string`
 ## Symbols
@@ -73,6 +80,12 @@ MARKER
 * `test_array.push(3)` => in end
 * `test_array.unshift(5)` => in begin
 * `test_array.insert(3, 32, 90)` => in 3 position
+* 
+```
+array = [1, 2, 3]
+array += [4, 5]
+array #=> [1, 2, 3, 4, 5]
+```
 ### Delete
 * `array.pop` => last element
 * `array.shift` => first element
