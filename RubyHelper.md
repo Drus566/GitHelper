@@ -473,7 +473,7 @@ puts one: "one" # => {:one=>"one"}
 ```
 array = [1, 2, 1, 2, 3, 2, 1, 2, 4, 5]
 array.inject({}){ |result, i| result.update({ i=>1 }){ |key, old, new| old+new }}
-    #=> {5=>1, 1=>3, 2=>4, 3=>1, 4=>1}
+     #=> {5=>1, 1=>3, 2=>4, 3=>1, 4=>1}
 ```
 ## File
 ### Read
