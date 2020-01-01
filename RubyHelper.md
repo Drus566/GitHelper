@@ -1,4 +1,4 @@
-# Table of contents
+# Content
 1. [Base](#base)
    1. [Comments](#comments)
    2. [Terminal output](#terminal_output)
