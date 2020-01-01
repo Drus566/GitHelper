@@ -4,7 +4,7 @@
   2. [Terminal output](#terminal_output)
   2. [Variables and constants](#variables_and_constants)
   3. [Handle error](#handle_error)
-# Base
+# Base <a name="base"></a>
 ## Comments <a name="comments"></a>
 ### Multiline
 ```
