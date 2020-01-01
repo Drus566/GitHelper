@@ -2,8 +2,11 @@
 1. [Base](#base)
    1. [Comments](#comments)
    2. [Terminal output](#terminal_output)
-   2. [Variables and constants](#variables_and_constants)
-   3. [Handle error](#handle_error)
+   3. [Variables and constants](#variables_and_constants)
+   4. [Handle error](#handle_error)
+   5. [Arifmetic operations](#arifmetic_operations)
+   6. [Strings](#strings)
+   
 # Base <a name="base"></a>
 ## Comments <a name="comments"></a>
 ### Multiline
@@ -36,10 +39,10 @@ ensure
   puts 'Code perform in anyway'
 end
 ```
-## Arifmetic operations
+## Arifmetic operations <a name="arifmetic_operations"></a>
 ### Exponent
 `2 ** 5` => 32
-## Strings
+## Strings  <a name="strings"></a>
 * `string1 = %q[Escapes any quotation marks, but doesn't understend \n]`
 * `string = %q(things)`
 * `string2 = %Q[Escapes any quotation marks and understend \n]`
