@@ -6,6 +6,26 @@
    4. [Handle error](#handle_error)
    5. [Arifmetic operations](#arifmetic_operations)
    6. [Strings](#strings)
+   7. [Symbols](#symbols)
+   8. [Arrays](#arrays)
+   9. [Logic expressions](#logic_expressions)
+   10. [Control structures](#control_structures)
+   11. [Cycles](#cycles)
+   12. [Enumerators](#enumerators)
+   13. [Functions](#functions)
+   14. [Regular expressions](#regular_expressions)
+   15. [Ranges](#ranges)
+   16. [Hashes](#hashes)
+   17. [Files](#files)
+   18. [Blocks](#blocks)
+   19. [Triggers](#triggers)
+   20. [Random](#random)
+2. [OOP](#oop)
+   1.[Variables](#variables)
+   2.[Inheritance](#inheritance)
+   3.[Modules](#modules)
+   4.[Self methods](#self_methods)
+   5.[Area](#area)
    
 # Base <a name="base"></a>
 ## Comments <a name="comments"></a>
@@ -257,10 +277,10 @@ float_integer.round 3
 ```
 "АБАВБА".chars.group_by { |l| l }.count { |k, v| v.size.odd? } <= 1
 ```
-## Symbols
+## Symbols <a name="symbols"></a>
 ### Create
 `array_of_symbols = %i(a b c)`
-## Array
+## Arrays <a name="arrays"></a>
 ### Create
 * `empty_arr = Array.new(5)` => [nil,nil,nil,nil,nil]
 * `true_arr = Array.new(5,true)` => [true,true,true,true,true]
@@ -417,12 +437,12 @@ array.sort_by{ rand }            #=> перемешанный массив
 array = [2, 1, 3, 5, 6, 7, 4]
 array.sort{ |x, y| y <=> x }     #=> [7, 6, 5, 4, 3, 2, 1]
 ```
-## Logic expressions
+## Logic expressions <a name="logic_expressions"></a>
 * `!0` => false
 * `1 <=> 1` => 0, values are equal
 * `1 <=> 2` => -1, left value less
 * `2 <=> 1` => 1, left value greater
-## Control structures
+## Control structures <a name="control_structures"></a>
 ### conditions
 * `x = if a > 0 then b else c end
 * `x == 1 ? puts 'true' : puts 'false'`
@@ -476,7 +496,7 @@ if Integer === 21
 end
 # => 21 является целым числом
 ```
-## Cycles
+## Cycles <a name="cycles"></a>
 ### while
 ```
 counter = 1
@@ -525,7 +545,7 @@ list.each_index do |i|
   # code...
 end
 ```
-## Enumerators
+## Enumerators <a name="enumerators"></a>
 ### Get summ of all elements
 * `(5..10).reduce(:+)`                 => 45
 * `(5..10).inject {|sum, n| sum + n}`   => 45
@@ -557,7 +577,7 @@ a.flatten                 #=> [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 a = [ 1, 2, [3, [4, 5] ] ]
 a.flatten(1)
 ```
-## Functions
+## Functions <a name="functions"></a>
 ``` 
 def double(x)
   x*2
@@ -591,7 +611,7 @@ end
 
 surround { puts 'hello world' }
 ```
-## Regular expressions
+## Regular expressions <a name="regular_expressions"></a>
 ### create
 `regular_expression = %r([0-9])`
 ### match
@@ -599,7 +619,7 @@ surround { puts 'hello world' }
 "aaaa1".match?(/[0-9]/) # => true
 "".match?(/[0-9]/) # => false
 ```
-## Range
+## Ranges <a name="ranges"></a>
 ### include?, max, ===
 ```
 some_range = 1..3
@@ -620,7 +640,7 @@ p ('k'..'z').to_a.sample(2) # => ["k", "w"]
 ### Note
 * Can convert to array `to_a`
 * Объекты, имеющие `.succ` называют последовательными: этим методом можно по текущему элементу достоверно определить следующий. 
-## Hash
+## Hashes <a name="hashes"></a>
 ### Create
 * Из одномерного массива
 ```
@@ -843,7 +863,7 @@ hash.hello    #=> "привет"
 hash.bye      #=> "пока"
 ```
 Естественно, что ключи в таком хеше могут содержать только латиницу, символ подчёркивания и цифры (везде, кроме первого символа). Иначе говоря, удовлетворять всем требованиям, которые мы предъявляем к именам методов и именам переменных. 
-## File
+## Files <a name="files"></a>
 ### Read
 ```
 File.foreach ( 'test.txt' ) do |line|
@@ -883,7 +903,7 @@ File.open("test1.txt", "w") do |file|
   file.puts "Вторая строка"
 end
 ```
-## Blocks
+## Blocks <a name="blocks"></a>
 ### Impilicit block
 ```
 def two_times_implicit
@@ -907,7 +927,7 @@ puts two_times_explicit # => Нет блока
 two_times_explicit { puts "Привет" } # => Привет
                                      # => Привет
 ```
-## Triggers
+## Triggers <a name="triggers"></a>
 ```
 if (condition1)..(condition2)
   # do something
@@ -922,7 +942,7 @@ end
 
 Оно напечатает все числа с 3 до 15, но если 15 будет пропущено в цикле, то оно так и продолжит печатать.
 
-## Random
+## Random <a name="random"></a>
 ### 0-99 and 0.0-1.0
 ```
 rand(100)    #=> 86
@@ -934,8 +954,8 @@ srand 123
 Array.new(5){ rand(100) }    #=> [66, 92, 98, 17, 83]
 ```
 Если вы выполните данную программу у себя, то получите тот же самый массив. 123 — номер «случайной» последовательности. Измените его и массив изменится! Если вызвать srand без параметра или не вызывать его вообще, то номер «случайной» последовательности выбирается случайным образом. 
-# OOP
-## Variables
+# OOP <a name="oop"></a>
+## Variables <a name="variables"></a>
 `@@` - variable of class
 `@` - variable of instance 
 ```
@@ -969,7 +989,7 @@ class Human
   end
 end
 ```
-## Inheritance
+## Inheritance <a name="inheritance"></a>
 ```
 class Doctor < Human
   def examinePatient 
@@ -982,7 +1002,7 @@ class Doctor < Human
   end
 end
 ```
-## Modules
+## Modules <a name="modules"></a>
 ```
 module ModuleExample 
   def foo
@@ -1008,7 +1028,7 @@ end
 Book.foo # => 'foo'
 Book.foo.new # => error
 ```
-## Self methods of class
+## Self methods <a name="self_methods"></a>
 ```
 class MathFunctions 
 
@@ -1032,7 +1052,7 @@ puts MathFunctions.double 5 # => 10
 puts MathFunctions.triple(3) # => 9 
 puts MathFunctions.some_method # => 'ggwp' 
 ```
-## Area
+## Area <a name="area"></a>
 ### Methods of current area
 `local_variables`
 ### Constants
