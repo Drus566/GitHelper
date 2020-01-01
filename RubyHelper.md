@@ -21,11 +21,11 @@
    19. [Triggers](#triggers)
    20. [Random](#random)
 2. [OOP](#oop)
-    1.[Variables](#variables)
-    2.[Inheritance](#inheritance)
-    3.[Modules](#modules)
-    4.[Self methods](#self_methods)
-    5.[Area](#area)
+   1. [Variables](#variables)
+   2. [Inheritance](#inheritance)
+   3. [Modules](#modules)
+   4. [Self methods](#self_methods)
+   5. [Area](#area)
    
 # Base <a name="base"></a>
 ## Comments <a name="comments"></a>
