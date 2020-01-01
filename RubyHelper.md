@@ -1,9 +1,9 @@
 # Table of contents
 1. [Base](#base)
-  1. [Comments](#comments)
-  2. [Terminal output](#terminal_output)
-  2. [Variables and constants](#variables_and_constants)
-  3. [Handle error](#handle_error)
+    1. [Comments](#comments)
+    2. [Terminal output](#terminal_output)
+    2. [Variables and constants](#variables_and_constants)
+    3. [Handle error](#handle_error)
 # Base <a name="base"></a>
 ## Comments <a name="comments"></a>
 ### Multiline
