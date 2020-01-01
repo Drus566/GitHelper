@@ -1,7 +1,9 @@
 # Table of contents
-1. [Introduction](#terminal_output)
-2. [Some paragraph](#variables_and_constants)
-3. [Another paragraph](#handle_error)
+1. [Base](#base)
+  1. [Comments](#comments)
+  2. [Terminal output](#terminal_output)
+  2. [Variables and constants](#variables_and_constants)
+  3. [Handle error](#handle_error)
 # Base
 ## Comments <a name="comments"></a>
 ### Multiline
