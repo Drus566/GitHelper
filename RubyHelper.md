@@ -1,15 +1,19 @@
+# Table of contents
+1. [Introduction](#terminal_output)
+2. [Some paragraph](#variables_and_constants)
+3. [Another paragraph](#handle_error)
 # Base
-## Comments
+## Comments <a name="comments"></a>
 ### Multiline
 ```
 =begin
 comment 
 =end
 ```
-## Terminal output
+## Terminal output <a name="terminal_output"></a>
 ### Output for array
 `print`
-## Variables and constants
+## Variables and constants <a name="variables_and_constants"></a>
 ### Global
 `$pass = 'qwerty'`
 ### Constant
@@ -18,7 +22,7 @@ comment
 `a = b = c = 42`
 ### Multiple assignment
 `a,b,c = 0, 9, 3`
-## Handle errors
+## Handle errors <a name="handle_error"></a>
 ```
 begin
   raise NoMemoryError, 'Out of memory'
