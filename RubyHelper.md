@@ -19,8 +19,9 @@
    17. [Files](#files)
    18. [Blocks](#blocks)
    19. [Triggers](#triggers)
-   20. [Random](#random)
-   21. [Matrices](#matrices)
+   20  [Methods](#methods)
+   21. [Random](#random)
+   22. [Matrices](#matrices)
 2. [OOP](#oop)
    1. [Variables](#variables)
    2. [Inheritance](#inheritance)
@@ -979,7 +980,120 @@ end
 ```
 
 Оно напечатает все числа с 3 до 15, но если 15 будет пропущено в цикле, то оно так и продолжит печатать.
+## Methods <a name="methods"></a>
+### «Поглощение» аргументов метода
+```
+def sum(*members)
+    members[0] + members[1]
+end
 
+sum(10, 2) #=> 12
+```
+### Операторы
+```
+class Broom
+    def+(another)
+        12 + another
+    end
+end
+
+whisk = Broom.new
+whisk + 10    #=> 22
+```
+### Свои методы с замыканиями
+```
+def twice
+    yield "и раз"
+    yield "и два"
+end
+
+twice { |words| puts "!!! " + words }    #=> !!! и раз
+                                         #=> !!! и два
+```
+```
+def twice(&closure)
+    yield "и раз"
+    yield "и два"
+end
+
+twice    #=> Ошибка LocalJumpError - отсутствует замыкание
+```
+```
+def func(a, &closure)
+    return a if a
+    yield "и раз"
+    yield "и два"
+end
+
+func true     #=> true
+func false    #=> LocalJumpError: no block given
+```
+```
+def func(a, &closure)
+    return a if a
+    closure ||= lambda{ |words| puts "!!! " + words }
+    closure.call("и раз")
+    closure.call("и два")
+end
+
+func true     #=> true
+func false    #=> !!! и раз
+              #=> !!! и два
+
+func(false){ |words| puts "??? " + words }    #=> ??? и раз
+                                              #=> ??? и два
+```
+Здесь lambda — пустая функция, а closure.call — явный способ вызова замыкания на выполнение.
+
+Замыкание можно также передать другому методу, просто указав его как последний аргумент с амперсандом:
+```
+def writing_to(file, &closure)
+    File.open(file, 'w', &closure)
+end
+```
+```
+class Array
+  def inject2 ( buf )
+    self.map do |e|
+      buf = yield(buf,e)
+    end
+    buf
+  end
+end
+ 
+p [1,2,3].inject2(10){|b,e| b + e} #=> 16
+p [1,2,3].inject(10){|b,e| b + e}  #=> 16
+```
+### Примеры замыканий
+```
+connected{ download_email }
+```
+В данном случае мы пишем только замыкание с download_email, все заботы по открытию (а главное — закрытию) соединения возьмёт на себя метод connected:
+```
+def connected
+    connect_to_internet
+    result = yield
+    disconnect
+    result
+end
+```
+В данном случае мы сохраняем то, что вернуло замыкание, в метод, закрываем соединение и возвращаем результат замыкания как свой собственный.
+
+Чаще всего о методах, принимающих замыкания, можно говорить как о деепричастном обороте — например, «соединившись», «внутри_транзакции», «с файлом», «трижды».
+
+Если воспользоваться встроенной проверкой исключений, то метод принимает такой вид:
+```
+def connected
+    connect_to_internet
+    begin
+        result = yield
+    ensure
+        disconnect
+    end
+    result
+end
+```
+Тогда, даже если метод вызовет ошибку, соединение всё равно будет закрыто. 
 ## Random <a name="random"></a>
 ### 0-99 and 0.0-1.0
 ```
