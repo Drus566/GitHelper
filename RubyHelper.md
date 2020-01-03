@@ -19,7 +19,7 @@
    17. [Files](#files)
    18. [Blocks](#blocks)
    19. [Triggers](#triggers)
-   20  [Methods](#methods)
+   20. [Methods](#methods)
    21. [Random](#random)
    22. [Matrices](#matrices)
 2. [OOP](#oop)
