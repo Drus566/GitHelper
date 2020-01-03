@@ -1094,6 +1094,87 @@ def connected
 end
 ```
 Тогда, даже если метод вызовет ошибку, соединение всё равно будет закрыто. 
+### Создание методов замыкания
+* Size в качестве итератора 
+```
+array = [1, 2, 3, 4, 5, 6]
+array.size{ |i| (i % 2).zero? }    #=> 3
+```
+Чтобы заставить работать данную программу, необходимо перед использованием метода .size переопределить его, написав следующий код, который будет реализовывать эту функциональность:
+```
+class Array
+    def size(&closure)
+        closure ? inject(0){ |count, elem| (yield elem) ? count + 1 : count } : length
+    end
+end
+```
+* Рандом в range
+```
+class Range
+    def rand
+        to_a.sample
+    end
+end
+```
+Для проверки выполним следующий код:
+```
+p Array.new(100){ ("a".."c").rand }.uniq.sort  #=> ["a", "b", "c"]
+```
+### Способы расширения библиотеки методов
+```
+class Broom
+    def sweep
+    end
+end
+
+Broom.instance_methods    #=> […, "sweep", …]
+
+class Broom
+    def wash_lavatory_pan(lavatory_pan)
+    end
+end
+
+Broom.instance_methods    #=> […, "sweep", …, "wash_lavatory_pan", …]
+```
+```
+class String
+    def consonants
+        cons = []
+        self.scan(/[BCDFGHJKLMNPRSTVWXZbcdfghjklmnprstvwxz]/){ |m| cons << m }
+        cons.uniq.join
+    end
+end
+
+"Crazy brown fox jumps over a lazy dog".consonants    #=> "Crzbwnfxjmpsvrldg"
+```
+```
+class String
+    def self.consonants_from(string)
+        cons = []
+        string.scan(/[BCDFGHJKLMNPRSTVWXZbcdfghjklmnprstvwxz]/){ |m| cons << m }
+        cons.uniq.join
+    end
+end
+
+String.consonants_from("Crazy fox jumps over a lazy dog")    #=> "Crzbwnfxjmpsvldg"
+```
+```
+class File
+    def self.temporary(&closure)
+        # определим директорию, в которой в данный момент запущена программа
+        # методы dirname и expand_path в данном случае — File.dirname и File.expand_path
+        dirname = self.dirname(self.expand_path(__FILE__))
+        base    = basename(__FILE__, '.rb')         #=> имя файла с программой без расширения .rb
+        stamp   = "#{base}_#{Time.now.to_i}.tmp"    #=> системное время в секундах и расширение .tmp
+
+        # File.join соединит фрагменты пути обратным слешем в Windows и прямым слешем на UNIX
+        path = self.join(dirname, stamp)
+        self.open(path, 'w', &closure)
+    end
+end
+
+File.temporary { |f| f << "Some info" } #=> #<File:/Tests/(irb)_1151198720.tmp (closed)>
+```
 ## Random <a name="random"></a>
 ### 0-99 and 0.0-1.0
 ```
