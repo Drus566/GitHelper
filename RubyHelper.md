@@ -22,6 +22,7 @@
    20. [Methods](#methods)
    21. [Random](#random)
    22. [Matrices](#matrices)
+   23. [Reflection](#reflection)
 2. [OOP](#oop)
    1. [Variables](#variables)
    2. [Inheritance](#inheritance)
@@ -1175,6 +1176,74 @@ end
 
 File.temporary { |f| f << "Some info" } #=> #<File:/Tests/(irb)_1151198720.tmp (closed)>
 ```
+```
+string = "Crazy brown fox jumps over a lazy dog"
+other_string = "Three black witches"
+
+def string.vowels
+    vowels = []
+    scan(/[AEIOUYaeiuoy]/){ |m| vowels << m}
+    vowels.uniq.join
+end
+
+string.vowels          #=> "ayoue"
+other_string.vowels    #=> NoMethodError: undefined method `vowels' for …
+```
+* Удаление методов
+```
+class Broom
+    def sweep
+        "Метём!"
+    end
+end
+
+class Birch_broom < Broom
+
+    def whip(back)
+    end
+
+    def wet_in_basin(basin)
+    end
+
+    undef sweep
+
+end
+
+broom       = Broom.new
+birch_broom = Birch_broom.new
+
+broom.sweep          #=> "Метём!"
+birch_broom.sweep    #=> Ошибка NoMethodError — такого метода нет, хоть он и был унаследован
+```
+* Удаление класса
+```
+class Broom
+end
+
+whisk = Broom.new
+
+Object.send(:remove_const, :Broom)
+
+Broom          #=> Ошибка NameError: неизвестная константа Broom
+whisk.class    #=> Broom, всё ещё существует для экземпляра
+```
+Это свойство Ruby крайне полезно, если нужно создать класс, наследующий от другого, но при этом имеющий другого родителя. Например:
+```
+class Connection < Socket
+    # много-много методов…
+end
+
+conn = Connection.new()
+```
+В нашей программе:
+```
+Object.send(:remove_const, :Connection)
+
+class Connection < EncryptedSocket
+    # такие-же методы, как у Connection, но работающие с шифрованным соединением…
+end
+```
+В итоге чужая программа будет использовать созданный нами Connection
 ## Random <a name="random"></a>
 ### 0-99 and 0.0-1.0
 ```
@@ -1225,6 +1294,301 @@ p vector + vector    #=> Vector[2, 4, 6, 8, 10]
 p array + array      #=> [1, 2, 3, 4, 5, 1, 2, 3, 4, 5]
 ```
 Обратите внимание, что Vector создаётся точно также, как и матрица. По сути, вектор — это матрица, которая состоит лишь из одной строки. А матрица, в свою очередь, — это массив векторов. 
+## Reflection <a name="reflection"></a>
+### Class
+```
+"типичная строка".class #-> String
+0xface.class            #-> Fixnum
+9876543210.class        #-> Bignum
+1234.class.class        #-> Class
+Fixnum.class            #-> Class
+```
+Обратите внимание, что метод .class возвращает объект класса Class (очередная неожиданность). А почему же не строка? Дело в том, что от класса можно сразу же вызывать методы этого класса. Например, нужно создать объект точно такого же класса, как и у переменной my_variable. Тогда ваш код может выглядеть следующим образом:
+```
+my_variable = [1, 2, 3, 4]
+my_variable.class           #-> Array
+my_variable.class.new       #-> []
+Array.new                   #-> []
+```
+Думаю, что никому не надо объяснять, какую мощь дает подобный механизм. Например, в своей деятельности мне не раз приходилось создавать массив классов, от каждого из которых вызывались одни и те же методы.
+### Superclass
+```
+Integer.superclass                #-> Numeric
+123.class.superclass              #-> Integer
+123.class.superclass.superclass   #-> Numeric
+Numeric.superclass                #-> Object
+Object.superclass                 #-> nil
+```
+* Все пользовательские классы унаследованы от класса Object, даже если в явном виде это не указано
+* Класс Object единственный класс, который не имеет родителя (суперкласса) и поэтому метод .superclass вынужден вернуть nil
+* В версии Ruby 2.0 класс Object имеет родителя BasicObject
+### Какие классы/модули использовались этим классом?
+Дело в том, что в языке Ruby отсутствует множественное наследование, которое компенсируется механизмом примесей. Вот для того, чтобы получить массив всех классов/модулей, которые относятся к данному классу и существует метод .ancestors. Посмотрим его в деле:
+```
+Fixnum.ancestors #-> [Fixnum, Integer, Precision, Numeric, Comparable, Object, Kernel]
+```
+```
+В соответствии с негласным правилом, методы, имена которых заканчиваются на s возвращают массив. Это правило получило свое дальнейшее развитие в Ruby on Rails и его следует придерживаться всем разработчикам на Ruby
+```
+Обратите внимание, что текущий класс располагается нулевым элементом в массиве, а все остальные классы расположены в порядке наследования/примешивания. 
+### Как получить список примесей класса?
+```
+Fixnum.included_modules #-> [Precision, Comparable, Kernel]
+```
+### Как получить список всех родительских классов?
+Хочу сразу Вас огорчить, что для решения этой задачи специального метода не существует, а это значит, что задачу будем решать через уже известные.
+```
+my_variable = 123
+class_array = my_variable.class.ancestors - 
+  my_variable.class.included_modules  #-> [Fixnum, Integer, Numeric, Object]
+class_array.join(" < ")               #-> "Fixnum < Integer < Numeric < Object"
+```
+Последняя строка примера мне особенно нравится. В ней наглядно представлена вся иерархия наследования для класса Fixnum. Очень странно, что такой вопрос довольно часто возникает, а специального метода для его решения -- нет. Непорядок!
+```
+class Class
+  def hierarchy
+    ancestors - included_modules
+  end
+end
+
+Fixnum.hierarchy.join(" < ")   #-> "Fixnum < Integer < Numeric < Object"
+``` 
+Для поиска списка всех родительских классов мы создали метод .hierarchy в классе Class. Родительские классы возвращаются в виде массива объектов класса Class.
+### Является ли данный объект экземпляром этого класса?
+```
+5.instance_of?( Fixnum )     #-> true
+5.instance_of?( Integer )    #-> false
+[].instance_of?( Array )     #-> true
+String.instance_of?( Array ) #-> false
+String.instance_of?( Class ) #-> true
+``` 
+Метод .instance_of? можно перевести на русский, как вопрос "является ли экземпляром класса?"
+Обратите внимание, что число пять хоть и является целым, но метод .instance_of? не признает его экземляром класса Integer. В принципе он прав: число пять является экземпляром класса Fixnum, а не Integer. Это означает, что метод .instance_of? излишне строг.
+И что же нам делать, если эта строгость нам ни к чему? Для этого можно воспользоваться методами .class, .ancestors и .include?, которые будут учитывать не только текущий класс, но и его родительские классы с примесями.
+```
+my_number = 5
+my_number.is_a?( Fixnum )      #-> true
+my_number.is_a?( Integer )     #-> true
+my_number.is_a?( Enumerable )  #-> false
+my_number.is_a?( Comparable )  #-> true
+```
+### А как сравнивать классы между собой?
+```
+Fixnum < Numeric #-> true
+Object > Integer  #-> true
+Float < Integer   #-> nil
+IO <= File        #-> false
+```
+<=>. тоже работает
+### Какие константы доступны?
+```
+class MyClass
+  MY_CONST = "все равно какое значение"
+end
+
+MyClass.constants #-> ["MY_CONST"]
+Math.constants    #-> ["E", "PI"]
+Math::E           #-> 2.71828182845905
+Math::PI          #-> 3.14159265358979
+MyClass::MY_CONST #-> "все равно какое значение"
+```
+### Эта константа объявлена?
+```
+Math.const_defined?( "Pi" )           #-> false
+Math.const_defined?( "PI" )           #-> true
+```
+```
+Object.const_defined?("Math")     #-> true
+Object.const_defined?("Complex")  #-> false
+```
+### Как по имени константы получить ее значение?
+```
+Math.constants.map{ |const_name| 
+  Math.const_get( const_name ) 
+}#-> [2.71828182845905, 3.14159265358979]
+Math.const_get( "PI" )  #-> 3.14159265358979
+Math::PI                #-> 3.14159265358979
+```
+Обратите внимание, что внутри итератора .map нам приходится указывать конкретный модуль (Math), чтобы метод .const_get нормально работал. Иначе возникнет ошибка вида NoMethodError 
+### Какие классы доступны для использования?
+```
+classes = Object.constants.select{ |const_name| 
+  Object.const_get( const_name ).is_a? Class 
+}.sort  #-> ["ArgumentError", "Array", ..., "ZeroDivisionError"]
+
+classes.size  #-> 79
+```
+```
+without_error = classes.select{ |class_name| 
+  !class_name[/Error$/] 
+} #-> ["Array", "BasicSocket", ..., "UnboundMethod"]
+
+without_error.size  #-> 54
+```
+```
+classes - without_error  #-> ["ArgumentError", ..., "ZeroDivisionError"]
+```
+### Как изменить значение константы?
+```
+Pi = 3.14
+Pi        #-> 3.14
+Math::Pi = 3.1415
+Math::Pi  #-> 3.1415
+```
+```
+Object.const_set("Pi",3.14)
+Pi                      #-> 3.14
+Object.const_get("Pi")  #-> 3.14
+Math.const_set("Pi",3.1415)
+Math::Pi                #-> 3.1415
+Math.const_get("Pi")    #-> 3.1415
+```
+```
+Object.const_get("Math").const_set("Pi",3.1415)
+Object.const_get("Math").const_get("Pi")    #-> 3.1415
+Object.const_get("Math").const_get("PI")    #-> 3.14159265358979
+```
+### Какие глобальные переменные доступны?
+```
+global_variables                  #-> ["$-v", "$FILENAME", ..., "$KCODE"]
+global_variables.include?( "$a" ) #-> false
+$a = 1
+global_variables.include?( "$a" ) #-> true
+```
+Внимание! Использовать глобальные переменные стоит с величайшей осторожностью, так как они потенциально опасны в применении. Если существует возможность обойтись без глобальных переменных, то необходимо этой возможностью воспользоваться 
+### Какие локальные переменные доступны?
+```
+local_variables   #-> []
+a = 1
+local_variables   #-> ["a"]
+```
+### Какую информацию можно получить о переменных экземпляра?
+```
+class Sample
+  def initialize
+    @variable_1, @variable_2 = 1, "а можно не только число"
+  end
+end
+
+my_object = Sample.new
+my_object.instance_variables #-> ["@variable_1", "@variable_2"]
+```
+```
+my_object.instance_variable_get( "@variable_1" ) #-> 1
+my_object.instance_variable_get( "@variable_2" ) #-> "а можно не только число"
+```
+```
+my_object.instance_variable_set( "@variable_1", 2 )
+my_object.instance_variable_get( "@variable_1" )    #-> 2
+```
+```
+class Sample
+  def initialize
+    @variable_1, @variable_2 = 1, "а можно и число"
+  end
+  
+  def remove( name )
+    remove_instance_variable( name )
+  end
+end
+
+my_object = Sample.new
+my_object.instance_variables    #-> ["@variable_1", "@variable_2"]
+my_object.remove("@variable_1")
+my_object.instance_variables    #-> ["@variable_2"]
+```
+Создавать дополнительный метод .remove в классе Sample пришлось потому, что метод .remove_instance_variable является закрытым, то есть он может быть использован только внутри метода экземпляра. Если создание дополнительного метода не требуется, то можно использовать метод .instance_eval, который выполняет любой программный код в контексте экземпляра. 
+```
+class Sample
+  def initialize
+    @variable_1, @variable_2 = 1, "а можно и число"
+  end
+end
+
+my_object = Sample.new
+my_object.instance_variables        #-> ["@variable_1", "@variable_2"]
+my_object.instance_eval{ remove_instance_variable( "@variable_1" ) }
+my_object.instance_variables        #-> ["@variable_2"]
+my_object.instance_eval{ remove_instance_variable( "@variable_2" ) }
+my_object.instance_variables        #-> []
+```
+Кстати, метод .instance_eval можно использовать для получения значения переменной экземпляра. Например вот так:
+```
+Sample.new.instance_eval{ @variable_1 }   #-> 1
+```
+### Какую информацию можно получить о переменных класса?
+```
+class Sample
+  @@variable_1, @@variable_2 = 1, "а можно и число"
+end
+
+Sample.class_variables  #-> ["@@variable_2", "@@variable_1"]
+```
+```
+class Sample
+  def Sample.change( name, value )
+    class_variable_set( name, value )
+    class_variable_get( name )
+  end
+end
+
+Sample.change( "@@variable_1", 2 )  #-> 2
+```
+```
+Sample.class_eval{
+  class_variable_set( "@@variable_1", 2 )
+  class_variable_get( "@@variable_1" )  
+}   #-> 2
+```
+Блок метода .class_eval может иметь параметр -- класс (объект класса Class), в контексте которого выполняется блок. В нашем случае он абсолютно бесполезен, но возможно, что кому-то и пригодится (например, если класс, от которого вызывается метод .class_eval -- неизвестен)
+```
+class Sample
+  @@variable_1, @@variable_2 = 1, "а можно и число"
+end
+
+Sample.class_variables        #-> ["@@variable_1", "@@variable_2"]
+Sample.class_eval{ remove_class_variable( "@@variable_1" ) }
+Sample.class_variables        #-> ["@@variable_2"]
+Sample.class_eval{ remove_class_variable( "@@variable_2" ) }
+Sample.class_variables        #-> []
+```
+### Какие методы доступны?
+```
+class Sample
+  def method1
+    puts '1st method'
+  end
+  def method2
+    '2nd method'
+  end
+end
+a = Sample.new
+
+puts Sample.methods.include?(:method1)
+puts a.methods.include?(:method1)
+```
+Для первого случая вернет false, в то время, как при проверке наличия метода method1 в экземпляре(a) класса(Simple) вернет true
+### Можно ли вызвать этот метод?
+```
+class Sample
+  def method1
+    puts '1st method'
+  end
+  def method2
+    '2nd method'
+  end
+end
+a = Sample.new
+
+puts Sample.respond_to?(:method1)
+puts a.respond_to?(:method1)
+```
+вернет false true
+так же возможен вызов, когда методу передаются не символы, а стока - имя проверяемого метода:
+```
+puts Sample.respond_to?('method1')
+puts a.respond_to?('method1')
+```
 # OOP <a name="oop"></a>
 ## Variables <a name="variables"></a>
 `@@` - variable of class
