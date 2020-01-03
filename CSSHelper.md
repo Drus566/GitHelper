@@ -150,3 +150,6 @@ p {
 	border: inherit;
 }
 ```
+## Сброс стилей 
+* reset css
+* normalize
