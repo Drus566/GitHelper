@@ -375,6 +375,18 @@ puts array.methods.grep(/\?$/).sort
 array = [1, 2, 3, 4, 5]
 array.find_all{ |elem| elem % 2 == 0 }    #=> [2, 4]
 ```
+* find_index
+```
+def find_num(nums, x)
+  nums.find_index(num)
+end
+
+# this actually works with blocks too. This would work for all object
+# just need the right coparer func
+def find_obj(array, obj)
+  array.find_index{ |element| yield(element, obj) }
+end
+```
 * zero?
 ```
 (elem % 2).zero?
@@ -408,6 +420,20 @@ two                                                #=> [1, 2, 4, 5, 7, 8]
 ```
 array = [1, 2, 2, 3]
 array.all?{ |elem| elem > 2 }    #=> false
+```
+*  each_with_object
+```
+# better: or you can use each_with_object
+def build_hash(nums)
+  # it receives the object to start with ({}) and accumulates on top of it
+  nums.each_with_object({}) { |num, res| res[num] = calculate(num) }
+end
+
+# bonus: works with any kind of object
+def build_array(nums)
+  # you can replace the accumulator to be an array, or any object really.
+  nums.each_with_object([]) { |num, res| res << calculate(num) }
+end
 ```
 * any?
 ```
