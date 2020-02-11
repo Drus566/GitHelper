@@ -46,7 +46,7 @@ Rails.application.config.action_dispatch.cookies_rotations.tap do |cookies|
   cookies.rotate :signed, digest: "SHA1"
 end
 ```
-Для получения дополнительной информации о ротации ключа с зашифрованными и подписанными сообщениями, а также о различных опциях, которые принимает метод rotate, обратитесь, пожалуйста, к документации по <a href="https://api.rubyonrails.org/classes/ActiveSupport/MessageEncryptor.html">MessageEncryptor API</a> и <a href="https://api.rubyonrails.org/classes/ActiveSupport/MessageVerifier.html">MessageVerifier API</a>.
+Для получения дополнительной информации о ротации ключа с зашифрованными и подписанными сообщениями, а также о различных опциях, которые принимает метод `rotate`, обратитесь, пожалуйста, к документации по <a href="https://api.rubyonrails.org/classes/ActiveSupport/MessageEncryptor.html">MessageEncryptor API</a> и <a href="https://api.rubyonrails.org/classes/ActiveSupport/MessageVerifier.html">MessageVerifier API</a>.
 # Расширяем Rails <a name="6"></a>
 # Вносим вклад <a name="7"></a>
 
