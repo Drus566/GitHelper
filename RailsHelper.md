@@ -21,6 +21,9 @@
 `config.force_ssl = true`
 ### Хранение сессии 
 Rails использует ActionDispatch::Session::CookieStore в качестве хранилища сессии по умолчанию.
+`CookieStore` Rails сохраняет хэш сессии в куки на стороне клиента. Сервер получает хэш сессии из куки и устраняется необходимость в ID сессии.
+`CookieStore` использует <a href="https://api.rubyonrails.org/classes/ActionDispatch/Cookies/ChainedCookieJars.html#method-i-encrypted">зашифрованные</a> куки, чтобы предоставить безопасное, зашифрованное место расположения для хранения данных сессии.
+Ключ шифрования, а также ключ верификации, используемый для подписанных куки, получены из конфигурационного значения secret_key_base.
 
 # Расширяем Rails <a name="6"></a>
 # Вносим вклад <a name="7"></a>
