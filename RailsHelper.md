@@ -69,6 +69,38 @@ rails new blog
 <%= form_with scope: :article, local: true do |form| %>
 ```
 ПРИМЕЧАНИЕ: По умолчанию form_with отправляет формы с использованием Ajax, тем самым не осуществляя редирект всей страницы. Чтобы облегчить чтение данного руководства, мы отключили это с помощью `local: true`.
+#### Создание статей
+При отправке формы, ее поля будут посланы в Rails как параметры. К этим параметрам можно обратиться из экшнов контроллера, как правило, для выполнения определенных задач. Чтобы увидеть, на что похожи эти параметры, измените экшн create так:
+```
+def create
+  render plain: params[:article].inspect
+end
+```
+Метод params возвращает объект ActionController::Parameters, позволяющий получать доступ к ключам хэша с использованием или строк, или символов.
+> Давайте рассмотрим в качестве примера URL: http://www.example.com/?username=dhh&email=dhh@email.com. В этом URL, params[:username] будет равен "dhh" и params[:email] будет равен "dhh@email.com".
+
+Если еще раз отправить форму, вы увидите что-то вроде следующего:
+`<ActionController::Parameters {"title"=>"First Article!", "text"=>"This is my first article."} permitted: false>`
+
+#### Создание модели Article
+`rails generate model Article title:string text:text`
+создаст:
+```
+class CreateArticles < ActiveRecord::Migration[6.0]
+  def change
+    create_table :articles do |t|
+      t.string :title
+      t.text :text
+
+      t.timestamps
+    end
+  end
+end
+```
+Миграция в бд `rails db:migrate`
+Если хотите выполнить миграции в другой среде, например в production, следует явно передать ее при вызове команды: `rails db:migrate RAILS_ENV=production`
+
+
 
 
 
