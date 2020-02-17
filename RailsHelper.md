@@ -118,6 +118,71 @@ Rails автоматически оборачивает поля, содержа
 Также, передача объекта модели в `form_with`, наподобие `model: @article` во вьюхе редактирования выше, заставит хелпер формы заполнить поля формы соответствующими значениями объекта. Передача в пространство имен символа, такая как `scope: :article`, что было сделано во вьюхе new, только создаст пустые поля формы.
 > Не обязательно передавать все атрибуты в update. К примеру, если был вызван `@article.update(title: 'A new title')`, Rails обновит только атрибут title, оставив все другие атрибуты нетронутыми.
 Хелперы, в том числе `form with` https://api.rubyonrails.org/classes/ActionView/Helpers/FormHelper.html#method-i-form_with-label-Resource-oriented+style
+`rails generate model Comment commenter:string body:text article:references`
+Ключевое слово `(:references)`, использованное в команде bash, это специальный тип данных для моделей. Он создает новый столбец в вашей базе данных с именем представленной модели с добавленным _id, который может содержать числовые значения. Чтобы лучше понять, проанализируйте файл db/schema.rb после выполнения миграции.
+
+В дополнение к модели, Rails также сделал миграцию для создания соответствующей таблицы базы данных:
+```
+class CreateComments < ActiveRecord::Migration[6.0]
+  def change
+    create_table :comments do |t|
+      t.string :commenter
+      t.text :body
+      t.references :article, null: false, foreign_key: true
+
+      t.timestamps
+    end
+
+  end
+end
+```
+Строчка `t.references` создает числовой столбец с именем `article_id`, индекс для него, и ограничение внешнего ключа, указывающего на столбец id таблицы `articles`.
+
+#### Добавляем маршрут для комментариев
+```
+resources :articles do
+  resources :comments
+end
+```
+`<%= form_with(model: [ @article, @article.comments.build ], local: true) do |form| %>`
+```
+<%= link_to 'Destroy Comment', [comment.article, comment],
+               method: :delete,
+               data: { confirm: 'Are you sure?' } %>
+```
+#### Удаление связанных объектов
+`has_many :comments, dependent: :destroy`
+### Безопасность
+Если вы опубликуете свой блог онлайн, любой сможет добавлять, редактировать и удалять статьи или удалять комментарии.
+
+Rails предоставляет базовую аутентификационную систему HTTP, которая хорошо работает в этой ситуации.
+
+В ArticlesController нам нужен способ блокировать доступ к различным экшнам, если пользователь не аутентифицирован. Тут мы можем использовать метод Rails `http_basic_authenticate_with`, разрешающий доступ к требуемым экшнам, если метод позволит это.
+
+Чтобы использовать систему аутентификации, мы определим ее вверху нашего ArticlesController в app/controllers/articles_controller.rb. В нашем случае, мы хотим, чтобы пользователь был аутентифицирован для каждого экшна, кроме index и show, поэтому напишем так:
+```
+class ArticlesController < ApplicationController
+
+  http_basic_authenticate_with name: "dhh", password: "secret", except: [:index, :show]
+
+  def index
+    @articles = Article.all
+  end
+```
+Мы также хотим позволить только аутентифицированным пользователям удалять комментарии, поэтому в CommentsController (app/controllers/comments_controller.rb) мы напишем:
+```
+class CommentsController < ApplicationController
+
+  http_basic_authenticate_with name: "dhh", password: "secret", only: :destroy
+
+  def create
+    @article = Article.find(params[:article_id])
+    # ...
+  end
+```
+Теперь, если попытаетесь создать новую статью, то встретитесь с вызовом базовой аутентификации HTTP.
+### Что дальше?
+тут ссылки на ресурсы
 
 
 
