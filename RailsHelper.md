@@ -186,7 +186,7 @@ class CommentsController < ApplicationController
 ```
 Теперь, если попытаетесь создать новую статью, то встретитесь с вызовом базовой аутентификации HTTP.
 ### Что дальше?
-тут ссылки на ресурсы
+тут ссылки на ресурсы в оригинале на RusRails 
 
 # Модели <a name="2"></a>
 ## Основы Active record <a name="2.1"></a>
@@ -233,7 +233,124 @@ Active Record использует соглашения о именовании 
 > Хотя эти имена столбцов опциональны, фактически они зарезервированы Active Record. Избегайте зарезервированных ключевых слов, если вы не желаете дополнительной функциональности. Например, type - это зарезервированное слово для определения таблицы, использующей наследование с единой таблицей (STI). Если вы не используете STI, попытайтесь использовать аналогичное слово, такое как "context", которое также может аккуратно описать данные, которые вы моделируете
 
 ### Создание моделей Active Record
+Создавать модели Active Record очень просто. Все, что необходимо сделать, - это создать подкласс ApplicationRecord, и готово:
+```
+class Product < ApplicationRecord
+end
+```
+Это создаст модель Product, **связав ее с таблицей products в базе данных**. Сделав так, также появится способность связать столбцы каждой строки этой таблицы с атрибутами экземпляров вашей модели. Допустим, что таблица products была создана с использованием такого выражения SQL (или одно из его расширений):
+```
+CREATE TABLE products (
+   id int(11) NOT NULL auto_increment,
+   name varchar(255),
+   PRIMARY KEY  (id)
+);
+```
+Вышеуказанная схема объявляет таблицу с двумя столбцами: id и name. Каждая строка этой таблицы представляет собой определенный продукт с этими двумя параметрами. Таким образом, можно написать подобный код:
+```
+p = Product.new
+p.name = "Some Book"
+puts p.name # "Some Book"
+```
+### Переопределение соглашений об именовании
+Но что, если вы следуете другому соглашению по именованию или используете новое приложение Rails со старой базой данных? Не проблема, можно просто переопределить соглашения по умолчанию.
 
+ApplicationRecord наследуется от `ActiveRecord::Base`, который определяет ряд полезных методов. Можно использовать метод `ActiveRecord::Base.table_name=` для указания имени таблицы, которая должна быть использована:
+```
+class Product < ApplicationRecord
+  self.table_name = "my_products"
+end
+```
+Если так сделать, нужно вручную определить имя класса, содержащего фикстуры (my_products.yml), используя метод set_fixture_class в определении теста:
+```
+class ProductTest < ActiveSupport::TestCase
+  set_fixture_class my_products: Product
+  fixtures :my_products
+  ...
+end
+```
+Также возможно переопределить столбец, который должен быть использован как первичный ключ таблицы, с помощью метода `ActiveRecord::Base.primary_key=`:
+```
+class Product < ApplicationRecord
+  self.primary_key = "product_id"
+end
+```
+### CRUD: Чтение и запись данных
+CRUD это сокращение для четырех глаголов, используемых для описания операций с данными: Create (создать), Read (прочесть), Update (обновить) и Delete (удалить). Active Record автоматически создает методы, позволяющие приложению читать и воздействовать на данные, хранимые в своих таблицах.
+Если предоставлен блок и `create`, и `new` передадут новый объект в этот блок для инициализации:
+```
+user = User.new do |u|
+  u.name = "David"
+  u.occupation = "Code Artist"
+end
+```
+Возвратит первого пользователя с именем David
+```
+david = User.find_by(name: 'David')
+```
+Найдет всех пользователей с именем David, которые Code Artists, и сортирует их по created_at в обратном хронологическом порядке:
+```
+users = User.where(name: 'David', occupation: 'Code Artist').order(created_at: :desc)
+```
+<a href="http://rusrails.ru/active-record-query-interface">Подробнее в интерфейсе запросов Active Record</a>
+Обновление:
+```
+user = User.find_by(name: 'David')
+user.update(name: 'Dave')
+```
+Это наиболее полезно, когда необходимо обновить несколько атрибутов за раз. Если, с другой стороны, необходимо обновить несколько записей за раз, полезен метод класса update_all:
+```
+User.update_all "max_login_attempts = 3, must_change_password = 'true'"
+```
+Более того, после получения, объект Active Record может быть уничтожен, что уберет его из базы данных.
+```
+user = User.find_by(name: 'David')
+user.destroy
+```
+Если необходимо удалить сразу несколько записей, можно использовать метод destroy_all:
+```
+# найти и удалить всех пользователей с именем David
+User.where(name: 'David').destroy_all
+
+# удалить всех пользователей
+User.destroy_all
+```
+### Валидации
+Active Record позволяет проверять состояние модели до того, как она будет записана в базу данных.
+Валидация - это очень важный вопрос, который нужно рассмотреть при сохранении в базу данных, поэтому методы `save` и `update` учитывают ее при запуске: они возвращают `false`, когда валидация проваливается, и фактически они не выполняют каких-либо операций с базой данных. Каждый из этих методов имеет пару с восклицательным знаком (`save!` и `update!`), которые строже в том, что они вызывают исключение `ActiveRecord::RecordInvalid` если валидация провалится. Краткий пример:
+```
+class User < ApplicationRecord
+  validates :name, presence: true
+end
+
+user = User.new
+user.save  # => false
+user.save! # => ActiveRecord::RecordInvalid: Validation failed: Name can't be blank
+```
+<a href="http://rusrails.ru/active-record-validations">Валидации Active record</a>
+### Колбэки
+Колбэки Active Record разрешают присоединить код к определенным событиям в жизненном цикле ваших моделей. Это позволяет добавить поведение модели, прозрачно выполнив код, когда эти события произойдут, например, когда вы создадите новую запись, обновите его, удалите его и так далее. Подробнее о колбэках можно прочитать в руководстве <a href="http://rusrails.ru/active-record-callbacks">Колбэки Active Record</a>.
+### Миграции
+Rails предоставляет DSL для управления схемой базы данных, называемый миграциями. Миграции хранятся в файлах, выполняемых для любой базы данных, которую **поддерживает Active Record, с использованием `rake`**. Вот миграция, создающая таблицу:
+```
+class CreatePublications < ActiveRecord::Migration[5.0]
+  def change
+    create_table :publications do |t|
+      t.string :title
+      t.text :description
+      t.references :publication_type
+      t.integer :publisher_id
+      t.string :publisher_type
+      t.boolean :single_issue
+
+      t.timestamps
+    end
+    add_index :publications, :publication_type_id
+  end
+end
+```
+Rails отслеживает, какие файлы переданы в базу данных, и представляет возможность отката. Чтобы фактически создать таблицу, нужно запустить rails `db:migrate`, **а чтобы ее откатить rails `db:rollback`**.
+> Отметьте, что вышеприведенный код не зависит от базы данных: он выполнится в MySQL, PostgreSQL, Oracle и иных. 
 
 # Вьюхи <a name="3"></a>
 # Контроллеры <a name="4"></a>
