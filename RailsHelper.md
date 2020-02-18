@@ -293,6 +293,7 @@ david = User.find_by(name: 'David')
 users = User.where(name: 'David', occupation: 'Code Artist').order(created_at: :desc)
 ```
 <a href="http://rusrails.ru/active-record-query-interface">Подробнее в интерфейсе запросов Active Record</a>
+
 Обновление:
 ```
 user = User.find_by(name: 'David')
