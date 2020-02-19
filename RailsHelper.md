@@ -621,3 +621,14 @@ $ rails c
 # Вносим вклад <a name="7"></a>
 
 # Дополнительно <a name="8"></a>
+## Все подряд
+### task_desire_api
+Модели:
+```
+rails g model User login:string:uniq password:string password:string name:string sign:string
+rails g model Article head:string announcement:string content:text status:boolean
+```
+Контроллеры:
+```
+rails g controller Articles create update destroy
+```
