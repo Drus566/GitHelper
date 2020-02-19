@@ -11,6 +11,7 @@
 6. [Расширяем Rails](#6)
 * 6.5 [Rails для API приложений](#6.5)
 7. [Вносим вклад](#7)
+8. [Дополнительно](#8)
 
 > В rus rails имеется множество ссылок, на ресурсы по связанным темам прямо в тексте, которые здесь не отображены.
 
@@ -463,8 +464,157 @@ class ApplicationController < ActionController::API
 end
 ```
 ### Выбор промежуточных программ
+API-приложение поставляется со следующими промежуточными программами по умолчанию:
+* Rack::Sendfile
+* ActionDispatch::Static
+* ActionDispatch::Executor
+* ActiveSupport::Cache::Strategy::LocalCache::Middleware
+* Rack::Runtime
+* ActionDispatch::RequestId
+* ActionDispatch::RemoteIp
+* Rails::Rack::Logger
+* ActionDispatch::ShowExceptions
+* ActionDispatch::DebugExceptions
+* ActionDispatch::Reloader
+* ActionDispatch::Callbacks
+* ActiveRecord::Migration::CheckPending
+* Rack::Head
+* Rack::ConditionalGet
+* Rack::ETag
 
+Другие плагины, включая Active Record, могут добавлять дополнительные промежуточные программы. В основном, эти промежуточные программы безразличны к типу создаваемого приложения, и имеют смысл в API-приложении Rails.
+
+Можно получить список всех промежуточных программ вашего приложения с помощью:
+```
+rails middleware
+```
+#### Использование кэширующей промежуточной программы
+
+По умолчанию Rails добавит промежуточную программу, предоставляющую хранилище кэша, основанного на конфигурации вашего приложения (по умолчанию memcache). Это означает, что встроенный кэш HTTP будет полагаться на нее.
+
+Например, используя метод `stale?`:
+```
+def show
+  @post = Post.find(params[:id])
+
+  if stale?(last_modified: @post.updated_at)
+    render json: @post
+  end
+end
+```
+Вызов `stale?` сравнит заголовок `If-Modified-Since` в запросе с `@post.updated_at`. Если заголовок новее, чем время последнего модифицирования, этот экшн вернет отклик "304 Not Modified". В противном случае, он отрендерит отклик и включит в него заголовок `Last-Modified`.
+
+Обычно этот механизм используется отдельно для каждого клиента. Кэширующая промежуточная программа позволяет распределять этот кэширующий механизм между клиентами. Можно включить межклиентское кэширование в вызове `stale?`:
+```
+def show
+  @post = Post.find(params[:id])
+
+  if stale?(last_modified: @post.updated_at, public: true)
+    render json: @post
+  end
+end
+```
+Это означает, что кэширующая промежуточная программа сохранит значение `Last-Modified` для URL в кэше Rails, и добавит заголовок `If-Modified-Since` в любой последующий входящий запрос к этому URL.
+
+Воспринимайте это как кэширование страниц в семантике HTTP.
+#### Использование Rack::Sendfile
+При использовании метода `send_file` в контроллере Rails, он устанавливает заголовок `X-Sendfile`. `Rack::Sendfile` ответственен за фактическую отсылку файла.
+
+Если ваш фронтенд сервер поддерживает ускоренную отсылку файла, `Rack::Sendfile` переложит работу по фактической отсылке файла на фронтенд сервер.
+Можно настроить имя заголовка, которое использует ваш фронтенд сервер для этой цели, с помощью `config.action_dispatch.x_sendfile_header` в соответствующем среде конфигурационном файле.
+<a href="https://rubydoc.info/github/rack/rack/master/Rack/Sendfile">Подробнее о send_file</a>
+Вот несколько значений этого заголовка для некоторых популярных серверов, которые, как только эти серверы будут настроены, добавят поддержку для ускоренной отсылки файла:
+```
+# Apache и lighttpd
+config.action_dispatch.x_sendfile_header = "X-Sendfile"
+
+# Nginx
+config.action_dispatch.x_sendfile_header = "X-Accel-Redirect"
+```
+Убедитесь, что сконфигурировали на своем сервере поддержку этих опций в соответствии с инструкциями в документации `Rack::Sendfile`
+#### Использование ActionDispatch::Request
+`ActionDispatch::Request#params` примет параметры от клиента в формате JSON и сделает их доступными в контроллере внутри `params`.
+
+Для его использования клиенту нужно сделать запрос с кодированными в JSON параметрами и указать `Content-Type` как `application/json`.
+
+Вот пример на jQuery:
+```
+jQuery.ajax({
+  type: 'POST',
+  url: '/people',
+  dataType: 'json',
+  contentType: 'application/json',
+  data: JSON.stringify({ person: { firstName: "Yehuda", lastName: "Katz" } }),
+  success: function(json) { }
+});
+```
+ActionDispatch::Request увидит Content-Type и вашими параметрами будут:
+```
+{ :person => { :firstName => "Yehuda", :lastName => "Katz" } }
+```
+####  Другие промежуточные программы
+Rails поставляется с рядом других промежуточных программ, которые вы, возможно, захотите использовать в API-приложении, особенно если одним из клиентов вашего API является браузер:
+* Rack::MethodOverride
+* ActionDispatch::Cookies
+* ActionDispatch::Flash
+Для управления сессией:
+* ActionDispatch::Session::CacheStore
+* ActionDispatch::Session::CookieStore
+* ActionDispatch::Session::MemCacheStore
+
+Любые из этих промежуточных программ могут быть добавлены с помощью:
+```
+config.middleware.use Rack::MethodOverride
+```
+#### Удаление промежуточных программ
+Если вы не хотите использовать промежуточную программу, которая включена по умолчанию в набор промежуточных программ для API, ее можно убрать с помощью:
+```
+config.middleware.delete ::Rack::Sendfile
+```
+Учтите, что удаление этих промежуточных программ удалит поддержку для определенных особенностей в Action Controller.
+### Выбор модулей контроллера
+API-приложение (использующее `ActionController::API`) по умолчанию поставляется со следующими модулями:
+* ActionController::UrlFor: Делает доступными url_for и подобные хелперы.
+* ActionController::Redirecting: Поддержка для redirect_to.
+* AbstractController::Rendering и ActionController::ApiRendering: Базовая поддержка для рендеринга.
+* ActionController::Renderers::All: Поддержка для render :json и сотоварищей.
+* ActionController::ConditionalGet: Поддержка для stale?.
+* ActionController::BasicImplicitRender: Убеждается, что возвращен пустой отклик, если нет явного.
+* ActionController::StrongParameters: Поддержка для фильтрации параметров в сочетании с массовым назначением Active Model.
+* ActionController::DataStreaming: Поддержка для send_file и send_data.
+* AbstractController::Callbacks: Поддержка для before_action и подобных хелперов.
+* ActionController::Rescue: Поддержка для rescue_from.
+* ActionController::Instrumentation: Поддержка для инструментальных хуков, определенных Action Controller (подробности относительно этого смотрите в руководстве Инструментарий Active Support).
+* ActionController::ParamsWrapper: Оборачивает хэш параметров во вложенный хэш, таким образом, к примеру, не нужно указывать корневые элементы при посылка запросов POST.
+* ActionController::Head: Поддержка возврата отклика без тела сообщения, только заголовки 
+Другие плагины могут добавлять дополнительные модули. Список всех модулей, включенных в `ActionController::API` можно получить в консоли rails:
+```
+$ rails c
+>> ActionController::API.ancestors - ActionController::Metal.ancestors
+=> [ActionController::API,
+    ActiveRecord::Railties::ControllerRuntime,
+    ActionDispatch::Routing::RouteSet::MountedHelpers,
+    ActionController::ParamsWrapper,
+    ... ,
+    AbstractController::Rendering,
+    ActionView::ViewPaths]
+```
+#### Добавление других модулей
+Все модули Action Controller знают о зависимых модулях, поэтому можно свободно включать любые модули в контроллеры, и будут включены и настроены все зависимости.
+
+Некоторые распространенные модули, которые вы, возможно, захотите добавить:
+* AbstractController::Translation: Поддержка для методов локализации l и перевода t.
+* Поддержка для базовой, дайджестной или токенной аутентификации HTTP:
+  1. ActionController::HttpAuthentication::Basic::ControllerMethods,
+  2. ActionController::HttpAuthentication::Digest::ControllerMethods,
+  3. ActionController::HttpAuthentication::Token::ControllerMethods 
+* ActionView::Layouts: Поддержка для макетов при рендеринге.
+* ActionController::MimeResponds: Поддержка для respond_to.
+* ActionController::Cookies: Поддержка для cookies, что включает поддержку для подписанных и зашифрованных куки. Он требует промежуточную программу для куки.
+* ActionController::Caching: Поддержка кэширования вьюх для контроллера API. Отметьте, что нужно вручную указать хранилище кэша внутри контроллера подобно следующему: ruby class ApplicationController < ActionController::API include ::ActionController::Caching self.cache_store = :mem_cache_store end Rails не передает эту конфигурацию автоматически. 
+
+Лучшим местом для добавления модулей является `ApplicationController`, но вы также можете добавить модули в отдельные контроллеры.
 
 # Вносим вклад <a name="7"></a>
 
-
+# Дополнительно <a name="8"></a>
