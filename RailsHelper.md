@@ -625,8 +625,8 @@ $ rails c
 ### task_desire_api
 Модели:
 ```
-rails g model User login:string:uniq password:string password:string name:string sign:string
-rails g model Article head:string announcement:string content:text status:boolean
+rails g model User login:string:uniq password_digest name sign
+rails g model Article head:string announcement:string content:text status:boolean user:references
 ```
 Контроллеры:
 ```
