@@ -8,6 +8,7 @@
 4. [Контроллеры](#4)
 5. [Копаем глубже](#5)
 * 5.1 [Безопасность приложений на Rails](#5.1)
+* 5.11 [Командная строка Rails](#5.11)
 6. [Расширяем Rails](#6)
 * 6.5 [Rails для API приложений](#6.5)
 7. [Вносим вклад](#7)
@@ -395,6 +396,8 @@ Rails.application.config.action_dispatch.cookies_rotations.tap do |cookies|
 end
 ```
 Для получения дополнительной информации о ротации ключа с зашифрованными и подписанными сообщениями, а также о различных опциях, которые принимает метод `rotate`, обратитесь, пожалуйста, к документации по <a href="https://api.rubyonrails.org/classes/ActiveSupport/MessageEncryptor.html">MessageEncryptor API</a> и <a href="https://api.rubyonrails.org/classes/ActiveSupport/MessageVerifier.html">MessageVerifier API</a>.
+## Командная строка Rails <a name="5.11"></a>
+
 # Расширяем Rails <a name="6"></a>
 ## Используем Rails для API приложений <a name="6.5"></a>
 ### Что такое API приложение
