@@ -632,3 +632,15 @@ rails g model Article head:string announcement:string content:text status:boolea
 ```
 rails g controller Articles create update destroy
 ```
+### Задачи Rake
+`rake db:create` - Cоздать баду данных
+`rake db:drop` - Удалить базу данных
+`rake db:migrate` - Запустить миграцию базы
+`rake db:rollback` - Откатить миграцию данных к предыдущему состоянию
+`rake db:schema:dump` - Построение файла schema.rb на основе текущей структуры базы данных
+`rake db:schema:load` - Восстановление структуры базы данных из schema.rb
+`rake db:seed` - Запускает скрипт db/seed.rb который по идее должен заполнить базу первоначальными данными
+`rake db:setup` - Запустит поочереди create, schema:load, seed
+`rake db:structure:dump` - Сделает дамп структуры в db/structue.sql
+`rake db:structure:load` - Восстановит базу из db/structue.sql
+
