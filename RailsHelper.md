@@ -421,13 +421,13 @@ end
 
 * Ресурсный роутинг: Если вы создаете RESTful JSON API, вам захочется использовать роутер Rails. Чистое и общепринятое сопоставление от HTTP к контроллерам означает, что не нужно тратить время, думая, как смоделировать ваш API в терминах HTTP.
 * Генерация URL: Обратной стороной роутинга является генерация URL. Хороший API, основанный на HTTP, включает URL (в качестве примера смотрите GitHub Gist API).
-* Отклики с заголовками и редиректами: head :no_content и redirect_to user_url(current_user) очень удобны. Конечно, заголовки отклика можно добавить руками, но зачем?
+* Отклики с заголовками и редиректами: `head :no_content` и `redirect_to user_url(current_user)` очень удобны. Конечно, заголовки отклика можно добавить руками, но зачем?
 * Кэширование: Rails предоставляет кэширование страниц, экшнов и фрагментов. Кэширование фрагментов особенно полезно при создании вложенных объектов JSON.
-* Базовая, дайджестная и токенная аутентификация: Rails поставляется с поддержкой из коробки трех типов аутентификации HTTP.
+* __Базовая, дайджестная и токенная аутентификация__: Rails поставляется с поддержкой из коробки трех типов аутентификации HTTP.
 * Инструментарий: в Rails имеется инструментальный API, запускающий зарегистрированные обработчики для множества событий, таких как обработка экшна, отсылка файла или данных, перенаправление и запросы к базе данных. Полезная нагрузка о каждом событии приходит с соответствующими параметрами (для события обработки экшна полезная нагрузка включает контроллер, экшн, параметры, формат запроса, метод запроса и полный путь запроса).
 * Генераторы: Часто удобно сгенерировать ресурс и получить модель, контроллер, заготовки для тестов и роутов, созданные одной командой, для дальнейшей доработки. То же самое для миграций и остального.
 * Плагины: Многие сторонние библиотеки поставляются с поддержкой Rails, что уменьшает или устраняет стоимость настройки и внедрения библиотеки во фреймворк. Это включает вещи, такие как переопределение генераторов по умолчанию, добавление задач Rake и принятие выбора в Rails (такого как логгер и кэширующий бэкенд). 
-Конечно, процесс загрузки Rails также соединяет воедино все зарегистрированные компоненты. Например, процесс загрузки Rails это то, что использует файл config/database.yml при конфигурации Active Record.
+Конечно, процесс загрузки Rails также соединяет воедино все зарегистрированные компоненты. Например, процесс загрузки Rails это то, что использует файл `config/database.yml` при конфигурации Active Record.
 > Краткая версия: можно не задумываться, какие части Rails все еще применимы, даже если вы уберете уровень представления, ответом будет - большая часть из них.
 ### Базовая конфигурация
 #### Генерация приложения 
@@ -468,22 +468,22 @@ end
 ```
 ### Выбор промежуточных программ
 API-приложение поставляется со следующими промежуточными программами по умолчанию:
-* Rack::Sendfile
-* ActionDispatch::Static
-* ActionDispatch::Executor
-* ActiveSupport::Cache::Strategy::LocalCache::Middleware
-* Rack::Runtime
-* ActionDispatch::RequestId
-* ActionDispatch::RemoteIp
-* Rails::Rack::Logger
-* ActionDispatch::ShowExceptions
-* ActionDispatch::DebugExceptions
-* ActionDispatch::Reloader
-* ActionDispatch::Callbacks
-* ActiveRecord::Migration::CheckPending
-* Rack::Head
-* Rack::ConditionalGet
-* Rack::ETag
+* `Rack::Sendfile`
+* `ActionDispatch::Static`
+* `ActionDispatch::Executor`
+* `ActiveSupport::Cache::Strategy::LocalCache::Middleware`
+* `Rack::Runtime`
+* `ActionDispatch::RequestId`
+* `ActionDispatch::RemoteIp`
+* `Rails::Rack::Logger`
+* `ActionDispatch::ShowExceptions`
+* `ActionDispatch::DebugExceptions`
+* `ActionDispatch::Reloader`
+* `ActionDispatch::Callbacks`
+* `ActiveRecord::Migration::CheckPending`
+* `Rack::Head`
+* `Rack::ConditionalGet`
+* `Rack::ETag`
 
 Другие плагины, включая Active Record, могут добавлять дополнительные промежуточные программы. В основном, эти промежуточные программы безразличны к типу создаваемого приложения, и имеют смысл в API-приложении Rails.
 
@@ -557,13 +557,13 @@ ActionDispatch::Request увидит Content-Type и вашими парамет
 ```
 ####  Другие промежуточные программы
 Rails поставляется с рядом других промежуточных программ, которые вы, возможно, захотите использовать в API-приложении, особенно если одним из клиентов вашего API является браузер:
-* Rack::MethodOverride
-* ActionDispatch::Cookies
-* ActionDispatch::Flash
+* `Rack::MethodOverride`
+* `ActionDispatch::Cookies`
+* `ActionDispatch::Flash`
 Для управления сессией:
-* ActionDispatch::Session::CacheStore
-* ActionDispatch::Session::CookieStore
-* ActionDispatch::Session::MemCacheStore
+* `ActionDispatch::Session::CacheStore`
+* `ActionDispatch::Session::CookieStore`
+* `ActionDispatch::Session::MemCacheStore`
 
 Любые из этих промежуточных программ могут быть добавлены с помощью:
 ```
@@ -577,19 +577,19 @@ config.middleware.delete ::Rack::Sendfile
 Учтите, что удаление этих промежуточных программ удалит поддержку для определенных особенностей в Action Controller.
 ### Выбор модулей контроллера
 API-приложение (использующее `ActionController::API`) по умолчанию поставляется со следующими модулями:
-* ActionController::UrlFor: Делает доступными url_for и подобные хелперы.
-* ActionController::Redirecting: Поддержка для redirect_to.
-* AbstractController::Rendering и ActionController::ApiRendering: Базовая поддержка для рендеринга.
-* ActionController::Renderers::All: Поддержка для render :json и сотоварищей.
-* ActionController::ConditionalGet: Поддержка для stale?.
-* ActionController::BasicImplicitRender: Убеждается, что возвращен пустой отклик, если нет явного.
-* ActionController::StrongParameters: Поддержка для фильтрации параметров в сочетании с массовым назначением Active Model.
-* ActionController::DataStreaming: Поддержка для send_file и send_data.
-* AbstractController::Callbacks: Поддержка для before_action и подобных хелперов.
-* ActionController::Rescue: Поддержка для rescue_from.
-* ActionController::Instrumentation: Поддержка для инструментальных хуков, определенных Action Controller (подробности относительно этого смотрите в руководстве Инструментарий Active Support).
-* ActionController::ParamsWrapper: Оборачивает хэш параметров во вложенный хэш, таким образом, к примеру, не нужно указывать корневые элементы при посылка запросов POST.
-* ActionController::Head: Поддержка возврата отклика без тела сообщения, только заголовки 
+* `ActionController::UrlFor`: Делает доступными url_for и подобные хелперы.
+* `ActionController::Redirecting`: Поддержка для redirect_to.
+* `AbstractController::Rendering` и `ActionController::ApiRendering`: Базовая поддержка для рендеринга.
+* `ActionController::Renderers::All`: Поддержка для `render :json` и сотоварищей.
+* `ActionController::ConditionalGet`: Поддержка для `stale?`.
+* `ActionController::BasicImplicitRender`: Убеждается, что возвращен пустой отклик, если нет явного.
+* `ActionController::StrongParameters`: Поддержка для фильтрации параметров в сочетании с массовым назначением Active Model.
+* `ActionController::DataStreaming`: Поддержка для `send_file` и `send_data`.
+* `AbstractController::Callbacks`: Поддержка для `before_action` и подобных хелперов.
+* `ActionController::Rescue: Поддержка для rescue_from.
+* `ActionController::Instrumentation`: Поддержка для инструментальных хуков, определенных Action Controller (подробности относительно этого смотрите в руководстве Инструментарий Active Support).
+* `ActionController::ParamsWrapper`: Оборачивает хэш параметров во вложенный хэш, таким образом, к примеру, не нужно указывать корневые элементы при посылка запросов POST.
+* `ActionController::Head`: Поддержка возврата отклика без тела сообщения, только заголовки 
 Другие плагины могут добавлять дополнительные модули. Список всех модулей, включенных в `ActionController::API` можно получить в консоли rails:
 ```
 $ rails c
@@ -606,15 +606,15 @@ $ rails c
 Все модули Action Controller знают о зависимых модулях, поэтому можно свободно включать любые модули в контроллеры, и будут включены и настроены все зависимости.
 
 Некоторые распространенные модули, которые вы, возможно, захотите добавить:
-* AbstractController::Translation: Поддержка для методов локализации l и перевода t.
+* `AbstractController::Translation`: Поддержка для методов локализации l и перевода t.
 * Поддержка для базовой, дайджестной или токенной аутентификации HTTP:
-  1. ActionController::HttpAuthentication::Basic::ControllerMethods,
-  2. ActionController::HttpAuthentication::Digest::ControllerMethods,
-  3. ActionController::HttpAuthentication::Token::ControllerMethods 
-* ActionView::Layouts: Поддержка для макетов при рендеринге.
-* ActionController::MimeResponds: Поддержка для respond_to.
-* ActionController::Cookies: Поддержка для cookies, что включает поддержку для подписанных и зашифрованных куки. Он требует промежуточную программу для куки.
-* ActionController::Caching: Поддержка кэширования вьюх для контроллера API. Отметьте, что нужно вручную указать хранилище кэша внутри контроллера подобно следующему: ruby class ApplicationController < ActionController::API include ::ActionController::Caching self.cache_store = :mem_cache_store end Rails не передает эту конфигурацию автоматически. 
+  1. `ActionController::HttpAuthentication::Basic::ControllerMethods` <a href="https://apidock.com/rails/v3.2.1/ActionController/HttpAuthentication/Basic">подробнее</a>,
+  2. `ActionController::HttpAuthentication::Digest::ControllerMethods`,
+  3. `ActionController::HttpAuthentication::Token::ControllerMethods` <a href="https://apidock.com/rails/v6.0.0/ActionController/HttpAuthentication/Token">Подробнее</a>
+* `ActionView::Layouts`: Поддержка для макетов при рендеринге.
+* `ActionController::MimeResponds`: Поддержка для respond_to.
+* `ActionController::Cookies`: Поддержка для cookies, что включает поддержку для подписанных и зашифрованных куки. Он требует промежуточную программу для куки.
+* `ActionController::Caching:` Поддержка кэширования вьюх для контроллера API. Отметьте, что нужно вручную указать хранилище кэша внутри контроллера подобно следующему: `ruby class ApplicationController < ActionController::API include ::ActionController::Caching self.cache_store = :mem_cache_store end` Rails не передает эту конфигурацию автоматически. 
 
 Лучшим местом для добавления модулей является `ApplicationController`, но вы также можете добавить модули в отдельные контроллеры.
 
