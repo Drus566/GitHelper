@@ -572,11 +572,13 @@ create_join_table :products, :categories
 ```
 create_join_table :products, :categories, column_options: { null: true }
 ```
+
 **По умолчанию**, имя соединительной таблицы получается как соединение первых двух аргументов, переданных в `create_join_table`, в алфавитном порядке. Чтобы настроить имя таблицы, передайте опцию `:table_name:`
 ```
 create_join_table :products, :categories, table_name: :categorization
 ```
 создает таблицу `categorization`
+
 **По умолчанию** `create_join_table` создаст два столбца без опций, но можно определить эти опции с использованием опции `:column_options`. Например,
 ```
 create_join_table :products, :categories, column_options: { null: true }
