@@ -358,6 +358,151 @@ Rails отслеживает, какие файлы переданы в базу
 > Отметьте, что вышеприведенный код не зависит от базы данных: он выполнится в MySQL, PostgreSQL, Oracle и иных. 
 
 ## Миграции Active Record <a name="2.2"></a>
+Миграции - это особенность Active Record, позволяющая изменять схему вашей базы данных время от времени.
+### Обзор миграций
+В базах данных, поддерживающих транзакции с выражениями, изменяющими схему, миграции оборачиваются в транзакцию. Если база данных это не поддерживает, и миграция проваливается, части, которые прошли успешно, не будут откачены назад. Вам нужно произвести откат вручную.
+> Некоторые запросы не могут быть запущены в транзакции. Если ваш адаптер поддерживает транзакции DDL, можно использовать `disable_ddl_transaction!` для их отключения для отдельной миграции.
+
+Если хотите миграцию для чего-то, что Active Record не знает, как обратить, вы можете использовать `reversible`
+```
+class ChangeProductsPrice < ActiveRecord::Migration[5.0]
+  def change
+    reversible do |dir|
+      change_table :products do |t|
+        dir.up   { t.change :price, :string }
+        dir.down { t.change :price, :integer }
+      end
+    end
+  end
+end
+```
+С другой стороны, можно использовать `up` и `down` вместо `change`:
+```
+class ChangeProductsPrice < ActiveRecord::Migration[5.0]
+  def up
+    change_table :products do |t|
+      t.change :price, :string
+    end
+  end
+
+  def down
+    change_table :products do |t|
+      t.change :price, :integer
+    end
+  end
+end
+```
+### Создание миграции
+#### Создание автономной миграции
+Миграции хранятся как файлы в директории `db/migrate`, один файл на каждый класс. Имя файла имеет вид `YYYYMMDDHHMMSS_create_products.rb`, это означает, что временная метка UTC идентифицирует миграцию, затем идет знак подчеркивания, затем идет имя миграции, где слова разделены подчеркиваниями. Имя класса миграции содержит буквенную часть названия файла, но уже в формате `CamelCase` (т.е. слова пишутся слитно, каждое слово начинается с большой буквы). Например, `20080906120000_create_products.rb` должен определять класс `CreateProducts`, а `20080906120001_add_details_to_products.rb` должен определять `AddDetailsToProducts`. Rails использует эту метку, чтобы определить, какая миграция должна быть запущена и в каком порядке, так что если вы копируете миграции из другого приложения или генерируете файл сами, будьте более бдительны.
+**Пустая миграция**:
+```
+rails generate migration AddPartNumberToProducts
+```
+Это создаст правильно названную пустую миграцию:
+```
+class AddPartNumberToProducts < ActiveRecord::Migration[5.0]
+  def change
+  end
+end
+```
+**Обычное поле столбец**.
+```
+rails generate migration AddPartNumberToProducts part_number:string
+или
+rails generate migration AddDetailsToProducts part_number:string price:decimal
+```
+генерирует
+```
+class AddPartNumberToProducts < ActiveRecord::Migration[5.0]
+  def change
+    add_column :products, :part_number, :string
+  end
+end
+
+и
+
+class AddDetailsToProducts < ActiveRecord::Migration[5.0]
+  def change
+    add_column :products, :part_number, :string
+    add_column :products, :price, :decimal
+  end
+end
+```
+**Индекс** на новый столбец, вы можете сделать это так
+```
+rails generate migration AddPartNumberToProducts part_number:string:index
+```
+генерирует
+```
+class AddPartNumberToProducts < ActiveRecord::Migration[5.0]
+  def change
+    add_column :products, :part_number, :string
+    add_index :products, :part_number
+  end
+end
+```
+**Удаление столбца**
+```
+rails generate migration RemovePartNumberFromProducts part_number:string
+```
+генерирует
+```
+class RemovePartNumberFromProducts < ActiveRecord::Migration[5.0]
+  def change
+    remove_column :products, :part_number, :string
+  end
+end
+```
+**Cоздание таблицы** 
+```
+rails generate migration CreateProducts name:string part_number:string
+```
+генерирует
+```
+class CreateProducts < ActiveRecord::Migration[5.0]
+  def change
+    create_table :products do |t|
+      t.string :name
+      t.string :part_number
+
+      t.timestamps
+    end
+  end
+end
+```
+**Столбец references** <a href="https://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/SchemaStatements.html#method-i-add_reference">Документация</a>
+```
+rails generate migration AddUserRefToProducts user:references
+```
+генерирует 
+```
+class AddUserRefToProducts < ActiveRecord::Migration[5.0]
+  def change
+    add_reference :products, :user, foreign_key: true
+  end
+end
+```
+**Соединительная таблица**
+```
+rails generate migration CreateJoinTableCustomerProduct customer product
+```
+генерирует
+```
+class CreateJoinTableCustomerProduct < ActiveRecord::Migration[5.0]
+  def change
+    create_join_table :customers, :products do |t|
+      # t.index [:customer_id, :product_id]
+      # t.index [:product_id, :customer_id]
+    end
+  end
+end
+```
+> Как всегда, то, что было сгенерировано, является всего лишь стартовой точкой. Вы можете добавлять и убирать строки, как считаете нужным, отредактировав файл `db/migrate/YYYYMMDDHHMMSS_add_details_to_products.rb`.
+#### Генераторы модели
+
+
+
 # Вьюхи <a name="3"></a>
 # Контроллеры <a name="4"></a>
 # Копаем глубже <a name="5"></a>
