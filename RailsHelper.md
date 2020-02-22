@@ -500,8 +500,277 @@ end
 ```
 > Как всегда, то, что было сгенерировано, является всего лишь стартовой точкой. Вы можете добавлять и убирать строки, как считаете нужным, отредактировав файл `db/migrate/YYYYMMDDHHMMSS_add_details_to_products.rb`.
 #### Генераторы модели
+Генераторы модели и скаффолда создадут миграции, подходящие для создания новой модели.
+```
+rails generate model Product name:string description:text
+```
+-> 
+```
+class CreateProducts < ActiveRecord::Migration[5.0]
+  def change
+    create_table :products do |t|
+      t.string :name
+      t.text :description
 
+      t.timestamps
+    end
+  end
+end
+```
+#### Передача модификаторов
+```
+rails generate migration AddDetailsToProducts 'price:decimal{5,2}' supplier:references{polymorphic}
+```
+->
+```
+class AddDetailsToProducts < ActiveRecord::Migration[5.0]
+  def change
+    add_column :products, :price, :decimal, precision: 5, scale: 2
+    add_reference :products, :supplier, polymorphic: true
+  end
+end
+```
+### Написание миграции
+#### Создание таблицы
+По умолчанию `create_table` создаст первичный ключ, названный `id`. Вы можете изменить имя первичного ключа с помощью опции `:primary_key` (не забудьте также обновить соответствующую модель), или, если вы вообще не хотите первичный ключ, можно указать опцию `id: false`. Если нужно передать базе данных специфичные опции, вы можете поместить фрагмент SQL в опцию `:options`. Например:
+```
+create_table :products, options: "ENGINE=BLACKHOLE" do |t|
+  t.string :name, null: false
+end
+```
+добавит `ENGINE=BLACKHOLE` к SQL выражению, используемому для создания таблицы.
+Также можно передать опцию `:comment` с любым описанием для таблицы, которое будет сохранено в самой базе данных, и может быть просмотрено с помощью инструментов администрирования базы данных
+#### Создание соединительной таблицы
+**Миграционный метод** `create_join_table` создает соединительную таблицу HABTM (has and belongs to many, многие ко многим).
+```
+create_join_table :products, :categories
+```
+что создаст таблицу categories_products с двумя столбцами по имени `category_id` и `product_id`. У этих столбцов есть опция `:null`, установленная в `false` по умолчанию. Это может быть переопределено опцией `:column_options:`
+```
+create_join_table :products, :categories, column_options: { null: true }
+```
+**По умолчанию**, имя соединительной таблицы получается как соединение первых двух аргументов, переданных в `create_join_table`, в алфавитном порядке. Чтобы настроить имя таблицы, передайте опцию `:table_name:`
+```
+create_join_table :products, :categories, table_name: :categorization
+```
+создает таблицу `categorization`
+**По умолчанию** `create_join_table` создаст два столбца без опций, но можно определить эти опции с использованием опции `:column_options`. Например,
+```
+create_join_table :products, :categories, column_options: { null: true }
+```
+создаст `product_id` и `category_id` с опцией `:null` равной `true`.
+`create_join_table` также принимает блок, который можно использовать для добавления индексов (которые по умолчанию не создаются) или дополнительных столбцов:
+```
+create_join_table :products, :categories do |t|
+  t.index :product_id
+  t.index :category_id
+end
+```
+#### Изменение таблиц
+```
+change_table :products do |t|
+  t.remove :description, :name
+  t.string :part_number
+  t.index :part_number
+  t.rename :upccode, :upc_code
+end
+```
+удаляет столбцы `description` и `name`, создает строковый столбец `part_number` и добавляет индекс на него. Наконец, он переименовывает столбец `upccode`.
+#### Изменение столбцов
+```
+change_column :products, :part_number, :text
+```
+Он меняет тип столбца `part_number` в таблице products на `:text`. Отметьте, что команда `change_column` — необратима.
 
+**Кроме** `change_column`, методы `change_column_null` и `change_column_default` используются чтобы изменить ограничение не-null или значение столбца по умолчанию.
+```
+change_column_null :products, :name, false
+change_column_default :products, :approved, from: true, to: false
+```
+Это настроит поле `:name` в products быть NOT NULL столбцом и изменит значение по умолчанию для поля `:approved` с `true` на `false`.
+
+Также можно написать предыдущую миграцию `change_column_default` как `change_column_default :products, :approved, false`, но, в отличие от предыдущего примера, это сделало бы вашу миграцию необратимой
+#### Модификаторы столбца
+Модификаторы столбца могут быть применены при создании или изменении столбца:
+* `limit` Устанавливает максимальный размер полей `string/text/binary/integer`.
+* `precision` Определяет точность для полей `decimal`, определяющую общее количество цифр в числе.
+* `scale` Определяет масштаб для полей `decimal`, определяющий количество цифр после запятой.
+* `polymorphic` Добавляет столбец `type` для связей `belongs_to`.
+* `null` Позволяет или запрещает значения `NULL` в столбце.
+* `default` Позволяет установить значение по умолчанию для столбца. Отметьте, что если вы используете динамическое значение (такое как дату), значение по умолчанию будет вычислено лишь один раз (т.е. на дату, когда миграция будет применена).
+* `comment` Добавляет комментарий для столбца.
+Некоторые адаптеры могут поддерживать дополнительные опции; за подробностями обратитесь к документации API конкретных адаптеров.
+> С помощью командной строки нельзя указать null и default
+#### Внешние ключи
+Хотя это и не требуется, вы можете захотеть добавить ограничения внешнего ключа для обеспечения ссылочной целостности.
+```
+add_foreign_key :articles, :authors
+```
+Это добавит новый внешний ключ к столбцу `author_id` таблицы `articles`. Ключ ссылается на столбец `id` таблицы `authors`. Если имена столбцов не могут быть произведены из имен таблиц, можно использовать опции `:column` и `:primary_key`.
+Rails сгенерирует имя для каждого внешнего ключа, начинающееся с `fk_rails_` плюс 10 символов, которые детерминировано генерируются на основе `from_table` и `column`. Также есть опция `:name`, если хотите указать другое имя.
+
+> Active Record поддерживает внешние ключи только для отдельных столбцов. Чтобы использовать составные внешние ключи, требуются `execute` и `structure.sql`.
+
+**Убрать внешний ключ** также просто:
+```
+# позволим Active Record выяснить имя столбца
+remove_foreign_key :accounts, :branches
+
+# уберем внешний ключ для определенного столбца
+remove_foreign_key :accounts, column: :owner_id
+
+# уберем внешний ключ по имени
+remove_foreign_key :accounts, name: :special_fk_name
+```
+#### Когда хелперов недостаточно
+Если хелперов, предоставленных Active Record, недостаточно, можно использовать метод `execute` для выполнения произвольного SQL:
+```
+Product.connection.execute("UPDATE products SET price = 'free' WHERE 1=1")
+```
+Больше подробностей и примеров отдельных методов содержится в документации по API. В частности, документация для `ActiveRecord::ConnectionAdapters::SchemaStatements` (который обеспечивает методы, доступные в методах `up`, `down` и `change`), `ActiveRecord::ConnectionAdapters::TableDefinition` (который обеспечивает методы, доступные у объекта, переданного методом `create_table`) и `ActiveRecord::ConnectionAdapters::Table` (который обеспечивает методы, доступные у объекта, переданного методом `change_table`).
+#### Использование метода change
+Метод `change` это основной метод написания миграций. Он работает в большинстве случаев, когда `Active Record` знает, как обратить миграцию автоматически. На текущий момент метод change поддерживает только эти определения миграции:
+* `add_column`
+* `add_foreign_key`
+* `add_index`
+* `add_reference`
+* `add_timestamps`
+* `change_column_default` (необходимо указать опции :from и :to)
+* `change_column_null`
+* `create_join_table`
+* `create_table`
+* `disable_extension`
+* `drop_join_table`
+* `drop_table` (необходимо указать блок)
+* `enable_extension`
+* `remove_column` (необходимо указать тип)
+* `remove_foreign_key` (необходимо указать вторую таблицу)
+* `remove_index`
+* `remove_reference`
+* `remove_timestamps`
+* `rename_column`
+* `rename_index`
+* `rename_table` 
+
+`change_table` также является обратимым, пока блок не вызывает `change`, `change_default` или `remove`.
+
+`remove_column` обратима, если предоставить тип столбца третьим аргументом. Также предоставьте опции оригинального столбца, иначе Rails не сможет в точности пересоздать этот столбец при откате:
+```
+remove_column :posts, :slug, :string, null: false, default: ''
+```
+**Если вы нуждаетесь в использовании иных методов**, следует использовать `reversible` или писать методы `up` и `down` вместо метода `change`.
+#### Использование `reversible`
+ Вы можете использовать reversible, чтобы указать что делать когда запускается миграция и когда она требует отката.
+ ```
+ class ExampleMigration < ActiveRecord::Migration
+  def change
+    create_table :distributors do |t|
+      t.string :zipcode
+    end
+
+    reversible do |dir|
+      dir.up do
+        # добавим ограничение CHECK
+        execute <<-SQL
+          ALTER TABLE distributors
+            ADD CONSTRAINT zipchk
+              CHECK (char_length(zipcode) = 5) NO INHERIT;
+        SQL
+      end
+      dir.down do
+        execute <<-SQL
+          ALTER TABLE distributors
+            DROP CONSTRAINT zipchk
+        SQL
+      end
+    end
+
+    add_column :users, :home_page_url, :string
+    rename_column :users, :email, :email_address
+  end
+end
+```
+Использование `reversible` гарантирует, что инструкции выполнятся в правильном порядке. Если предыдущий пример миграции откатывается, `down` блок начнёт выполнятся после того как столбец `home_page_url` будет удалён и перед перед тем как произойдёт удаление таблицы `distributors`.
+
+Иногда миграция будет делать то, что просто необратимо; например, она может уничтожить некоторые данные. В таких случаях, вы можете вызвать `ActiveRecord::IrreversibleMigration` в вашем `down` блоке. Если кто-либо попытается отменить вашу миграцию, будет отображена ошибка, что это не может быть выполнено.
+#### Использование методов `up/down`
+По аналогии с верхним примером 
+```
+class ExampleMigration < ActiveRecord::Migration[5.0]
+  def up
+    create_table :distributors do |t|
+      t.string :zipcode
+    end
+
+    #добавляем ограничение CHECK
+    execute <<-SQL
+      ALTER TABLE distributors
+        ADD CONSTRAINT zipchk
+        CHECK (char_length(zipcode) = 5);
+    SQL
+
+    add_column :users, :home_page_url, :string
+    rename_column :users, :email, :email_address
+  end
+
+  def down
+    rename_column :users, :email_address, :email
+    remove_column :users, :home_page_url
+
+    execute <<-SQL
+      ALTER TABLE distributors
+        DROP CONSTRAINT zipchk
+    SQL
+
+    drop_table :distributors
+  end
+end
+```
+#### Возвращение к предыдущим миграциям
+```
+require_relative '20121212123456_example_migration'
+
+class FixupExampleMigration < ActiveRecord::Migration[5.0]
+  def change
+    revert ExampleMigration
+
+    create_table(:apples) do |t|
+      t.string :variety
+    end
+  end
+end
+```
+Метод `revert` также может принимать блок. Это может быть полезно для отката выбранной части предыдущих миграций. Для примера, давайте представим, что `ExampleMigration` закоммичена, а позже мы решили, что было бы лучше использовать валидации `Active Record`, вместо ограничения `CHECK`, для проверки `zipcode`.
+```
+class DontUseConstraintForZipcodeValidationMigration < ActiveRecord::Migration[5.0]
+  def change
+    revert do
+      reversible do |dir|
+        dir.up do
+          # добавим ограничение CHECK
+          execute <<-SQL
+            ALTER TABLE distributors
+              ADD CONSTRAINT zipchk
+                CHECK (char_length(zipcode) = 5);
+          SQL
+        end
+        dir.down do
+          execute <<-SQL
+            ALTER TABLE distributors
+              DROP CONSTRAINT zipchk
+          SQL
+        end
+      end
+
+      # The rest of the migration was ok
+    end
+  end
+end
+```
+Подобная миграция также может быть написана без использования `revert`, но это бы привело к ещё нескольким шагам: изменение порядка (следования) `create table` и `reversible`, замена `create_table` на `drop_table` и в конечном итоге изменение `up` на `down` и наоборот. Обо всём этом уже позаботился `revert`.
+
+> Если необходимо добавить ограничения `CHECK`, как в вышеуказанных примерах, нужно использовать `structure.sql` в качестве метода для выгрузки.
+### Запуск миграций
 
 # Вьюхи <a name="3"></a>
 # Контроллеры <a name="4"></a>
