@@ -984,33 +984,33 @@ Person.create(name: nil).valid? # => false
 Есть разные методы изменения состояния объекта в базе данных. Некоторые методы вызывают валидации, некоторые нет. Это означает, что возможно сохранить в базу данных объект с недействительным статусом, если вы будете не внимательны.
 
 Следующие методы вызывают валидацию, и сохраняют объект в базу данных только если он валиден:
-* create
-* create!
-* save
-* save!
-* update
-* update! 
+* `create`
+* `create!`
+* `save`
+* `save!`
+* `update`
+* `update!`
 
 Версии с восклицательным знаком (т.е. `save!`) **вызывают исключение**, если запись недействительна. Невосклицательные версии не вызывают: `save` и `update` возвращают `false`, `create` **возвращает объект**.
 #### Пропуск валидаций
 Следующие методы пропускают валидации, и сохраняют объект в базу данных, независимо от его валидности. Их нужно использовать осторожно.
-* decrement!
-* decrement_counter
-* increment!
-* increment_counter
-* toggle!
-* touch
-* update_all
-* update_attribute
-* update_column
-* update_columns
-* update_counters 
+* `decrement!`
+* `decrement_counter`
+* `increment!`
+* `increment_counter`
+* `toggle!`
+* `touch`
+* `update_all`
+* `update_attribute`
+* `update_column`
+* `update_columns`
+* `update_counters`
 
 Заметьте, что `save` также имеет способность пропустить валидации, если передать `validate: false` как аргумент. Этот способ нужно использовать осторожно.
 ```
 save(validate: false) 
 ```
-#### valid? или invalid?
+#### `valid?` или `invalid?`
 Вы также можете запускать эти валидации самостоятельно. `valid?` вызывает ваши валидации и возвращает `true`, если ни одной ошибки не было найдено у объекта, иначе `false`.
 ```
 class Person < ApplicationRecord
@@ -1022,9 +1022,9 @@ Person.create(name: nil).valid? # => false
 ```
 После того, как Active Record выполнит валидации, все найденные ошибки будут доступны в методе экземпляра `errors.messages`, возвращающем коллекцию ошибок.
 `invalid?` это просто антипод `valid?`.
-#### errors[]
+#### `errors[]`
 Чтобы проверить, является или нет конкретный атрибут объекта валидным, можно использовать `errors[:attribute]`, который возвращает массив со всеми ошибками атрибута, когда нет ошибок по определенному атрибуту, возвращается пустой массив.
-#### errors.details
+#### `errors.details`
 Чтобы проверить, какие валидации упали на невалидном атрибуте, можно использовать `errors.details[:attribute]`. Он возвращает массив хэшей с ключом `:error`, чтобы получить символ валидатора:
 ```
 class Person < ApplicationRecord
@@ -1264,6 +1264,420 @@ class Person < ApplicationRecord
 end
 ```
 > Ошибки, добавляемые в `record.errors[:base]` относятся к состоянию записи в целом, а не к определенному атрибуту.
+Хелпер `validates_with` принимает класс или список классов для использования в валидации. Для `validates_with` нет сообщения об ошибке по умолчанию. Следует вручную добавлять ошибки в коллекцию errors записи в классе валидатора.
+
+Для применения метода validate, необходимо иметь определенным параметр record, который является записью, проходящей валидацию.
+
+Подобно всем другим валидациям, `validates_with` принимает опции `:if`, `:unless` и `:on`. Если передадите любые другие опции, они будут переданы в класс валидатора как `options`:
+```
+class GoodnessValidator < ActiveModel::Validator
+  def validate(record)
+    if options[:fields].any?{|field| record.send(field) == "Evil" }
+      record.errors[:base] << "This person is evil"
+    end
+  end
+end
+
+class Person < ApplicationRecord
+  validates_with GoodnessValidator, fields: [:first_name, :last_name]
+end
+```
+Отметьте, что валидатор будет инициализирован только один раз на протяжении всего жизненного цикла приложения, а не при каждом запуске валидации, поэтому будьте аккуратнее с использованием переменных экземпляра в нем.
+
+Если ваш валидатор настолько сложный, что вы хотите использовать переменные экземпляра, вместо него проще использовать обычные объекты Ruby:
+```
+class Person < ApplicationRecord
+  validate do |person|
+    GoodnessValidator.new(person).validate
+  end
+end
+
+class GoodnessValidator
+  def initialize(person)
+    @person = person
+  end
+
+  def validate
+    if some_complex_condition_involving_ivars_and_private_methods?
+      @person.errors[:base] << "This person is evil"
+    end
+  end
+
+  # ...
+end
+```
+#### `validates_each`
+Этот хелпер помогает провести валидацию атрибутов с помощью блока кода. Он не имеет предопределенной валидационной функции. Вы должны создать ее, используя блок, и каждый атрибут, указанный в `validates_each`, будет протестирован в нем. В следующем примере нам не нужны имена и фамилии, начинающиеся с маленькой буквы.
+```
+class Person < ApplicationRecord
+  validates_each :name, :surname do |record, attr, value|
+    record.errors.add(attr, 'must start with upper case') if value =~ /\A[[:lower:]]/
+  end
+end
+```
+Блок получает запись, имя атрибута и значение атрибута. Вы можете делать что угодно для проверки валидности данных внутри блока. Если валидация проваливается, следует добавить сообщение об ошибке в модель, которое делает ее невалидной.
+### Общие опции валидаций <a name="2.3.3"></a>
+#### `:allow_nil`
+Опция `:allow_nil` пропускает валидацию, когда проверяемое значение равно `nil`.
+```
+class Coffee < ApplicationRecord
+  validates :size, inclusion: { in: %w(small medium large),
+    message: "%{value} is not a valid size" }, allow_nil: true
+end
+```
+#### `:allow_blank`
+
+Опция `:allow_blank` подобна опции `:allow_nil`. Эта опция пропускает валидацию, если значение атрибута `blank?`, например `nil` или пустая строка.
+```
+class Topic < ApplicationRecord
+  validates :title, length: { is: 5 }, allow_blank: true
+end
+
+Topic.create(title: "").valid?  # => true
+Topic.create(title: nil).valid? # => true
+```
+#### `:message`
+Значение `String` в `:message` может опционально содержать любые из `%{value}`, `%{attribute}` и `%{model}`, которые будут динамически заменены, когда валидация провалится. Эта замена выполняется, если используется гем `I18n`, и местозаполнитель должен полностью совпадать, пробелы не допускаются.
+
+Значение `Proc` в `:message` задается с двумя аргументами: проверяемым объектом и хэшем с ключами `:model`, `:attribute` и `:value`.
+```
+class Person < ApplicationRecord
+  # Жестко закодированное сообщение
+  validates :name, presence: { message: "must be given please" }
+
+  # Сообщение со значением с динамическим атрибутом. %{value} будет заменено
+  # фактическим значением атрибута. Также доступны %{attribute} и %{model}.
+  validates :age, numericality: { message: "%{value} seems wrong" }
+
+  # Proc
+  validates :username,
+    uniqueness: {
+      # object = person object being validated
+      # data = { model: "Person", attribute: "Username", value: <username> }
+      message: ->(object, data) do
+        "Hey #{object.name}!, #{data[:value]} is taken already! Try again #{Time.zone.tomorrow}"
+      end
+    }
+end
+```
+#### `:on`
+Используйте `on: :create`, для запуска валидации только когда создается новая запись, или `on: :update`, для запуска валидации когда запись обновляется.
+```
+class Person < ApplicationRecord
+  # будет возможно обновить email с дублирующим значением
+  validates :email, uniqueness: true, on: :create
+
+  # будет возможно создать запись с нечисловым возрастом
+  validates :age, numericality: true, on: :update
+
+  # по умолчанию (проверяет и при создании, и при обновлении)
+  validates :name, presence: true
+end
+```
+`on:` также можно использовать для **определения пользовательского контекста**. Пользовательские контексты должны быть явно включены с помощью передачи имени контекста в `valid?`, `invalid?` или `save`.
+```
+class Person < ApplicationRecord
+  validates :email, uniqueness: true, on: :account_setup
+  validates :age, numericality: true, on: :account_setup
+end
+
+person = Person.new
+```
+`person.valid?(:account_setup)` выполнит обе валидации без сохранения модели. И `person.save(context: :account_setup)` перед сохранением валидирует `person` в контексте `account_setup`. При явном включении модель валидируется только валидациями только этого контекста и валидациями без контекста.
+
+### Строгие валидации <a name="2.3.4"></a>
+Также можно определить валидации строгими, чтобы они вызывали `ActiveModel::StrictValidationFailed`, когда объект невалиден.
+```
+class Person < ApplicationRecord
+  validates :name, presence: { strict: true }
+end
+
+Person.new.valid?  # => ActiveModel::StrictValidationFailed: Name can't be blank
+```
+Также возможно передать собственное исключение в опцию `:strict`.
+```
+class Person < ApplicationRecord
+  validates :token, presence: true, uniqueness: true, strict: TokenGenerationException
+end
+
+Person.new.valid?  # => TokenGenerationException: Token can't be blank
+```
+### Условная валидация <a name="2.3.5"></a>
+#### Использование символа с `:if` и `:unless`
+```
+class Order < ApplicationRecord
+  validates :card_number, presence: true, if: :paid_with_card?
+
+  def paid_with_card?
+    payment_type == "card"
+  end
+end
+```
+#### Использование `Proc` с `:if` и `:unless`
+Использование объекта `Proc` дает возможность написать встроенное условие вместо отдельного метода. Этот вариант лучше всего подходит для однострочного кода.
+```
+class Account < ApplicationRecord
+  validates :password, confirmation: true,
+    unless: Proc.new { |a| a.password.blank? }
+end
+```
+#### Группировка условных валидаций `with_options`
+```
+class User < ApplicationRecord
+  with_options if: :is_admin? do |admin|
+    admin.validates :password, length: { minimum: 10 }
+    admin.validates :email, presence: true
+  end
+end
+````
+Во все валидации внутри `with_options` будет автоматически передано условие `if: :is_admin?`
+#### Объединение условий валидации
+С другой стороны, может использоваться массив, когда несколько условий определяют, должна ли произойти валидация. Более того, в одной и той же валидации можно применить и `:if:`, и `:unless`.
+```
+class Computer < ApplicationRecord
+  validates :mouse, presence: true,
+                    if: [Proc.new { |c| c.market.retail? }, :desktop?],
+                    unless: Proc.new { |c| c.trackpad.present? }
+end
+```
+Валидация выполнится только тогда, когда все условия `:if` и ни одно из условий `:unless` будут вычислены со значением `true`.
+### Выполнение собственных валидаций <a name="2.3.6"></a>
+#### Собственные валидаторы
+Собственные валидаторы это классы, наследуемые от `ActiveModel::Validator`. Эти классы должны реализовать метод `validate`, принимающий запись как аргумент и выполняющий валидацию на ней. Собственный валидатор вызывается с использованием метода `validates_with`
+```
+class MyValidator < ActiveModel::Validator
+  def validate(record)
+    unless record.name.starts_with? 'X'
+      record.errors[:name] << 'Need a name starting with X please!'
+    end
+  end
+end
+ 
+class Person
+  include ActiveModel::Validations
+  validates_with MyValidator
+end
+```
+Простейшим способом добавить собственные валидаторы для валидации отдельных атрибутов является наследуемость от `ActiveModel::EachValidator`. В этом случае класс собственного валидатора должен реализовать метод `validate_each`, принимающий три аргумента: запись, атрибут и значение. Это будут соответствующие экземпляр, атрибут, который будет проверяться и значение атрибута в переданном экземпляре:
+```
+class EmailValidator < ActiveModel::EachValidator
+  def validate_each(record, attribute, value)
+    unless value =~ /\A([^@\s]+)@((?:[-a-z0-9]+\.)`[a-z]{2,})\z/i
+      record.errors[attribute] << (options[:message] || "is not an email")
+    end
+  end
+end
+
+class Person < ApplicationRecord
+  validates :email, presence: true, email: true
+end
+```
+Как показано в примере, можно объединять стандартные валидации со своими произвольными валидаторами.
+#### Собственные методы
+Метод `valid?` проверит, что коллекция ошибок пуста. поэтому ваши собственные методы валидации должны добавить ошибки в нее, когда вы хотите, чтобы валидация провалилась:
+```
+class Invoice < ApplicationRecord
+  validate :expiration_date_cannot_be_in_the_past,
+    :discount_cannot_be_greater_than_total_value
+
+  def expiration_date_cannot_be_in_the_past
+    if expiration_date.present? && expiration_date < Date.today
+      errors.add(:expiration_date, "can't be in the past")
+    end
+  end
+
+  def discount_cannot_be_greater_than_total_value
+    errors.add(:discount, "can't be greater than total value") if
+      discount > total_value
+  end
+end
+```
+По умолчанию такие валидации будут выполнены каждый раз при вызове `valid?` или сохранении объекта. Но также возможно контролировать, когда выполнять собственные валидации, передав опцию `:on` в метод `validate`, с ключами: `:create` или `:update`.
+```
+class Invoice < ApplicationRecord
+  validate :active_customer, on: :create
+
+  def active_customer
+    errors.add(:customer_id, "is not active") unless customer.active?
+  end
+end
+```
+### Работаем с ошибками валидации <a name="2.3.7"></a>
+#### `errors`
+Возвращает экземпляр класса `ActiveModel::Errors`, содержащий все ошибки. Каждый ключ это имя атрибута и значение это массив строк со всеми ошибками.
+```
+class Person < ApplicationRecord
+  validates :name, presence: true, length: { minimum: 3 }
+end
+
+person = Person.new
+person.valid? # => false
+person.errors.messages
+ # => {:name=>["can't be blank", "is too short (minimum is 3 characters)"]}
+
+person = Person.new(name: "John Doe")
+person.valid? # => true
+person.errors.messages # => []
+```
+#### `errors[]`
+Он возвращает массив строк со всеми сообщениями об ошибке для заданного атрибута, каждая строка с одним сообщением об ошибке. Если нет ошибок, относящихся к атрибуту, возвратится пустой массив.
+```
+class Person < ApplicationRecord
+  validates :name, presence: true, length: { minimum: 3 }
+end
+
+person = Person.new(name: "John Doe")
+person.valid? # => true
+person.errors[:name] # => []
+
+person = Person.new(name: "JD")
+person.valid? # => false
+person.errors[:name] # => ["is too short (minimum is 3 characters)"]
+
+person = Person.new
+person.valid? # => false
+person.errors[:name]
+ # => ["can't be blank", "is too short (minimum is 3 characters)"]
+```
+#### `errors.add`
+Метод add позволяет добавлять сообщение об ошибке, относящейся к определенному атрибуту. Он принимает в качестве аргументов атрибут и сообщение об ошибке.
+
+Метод `errors.full_messages` (или его эквивалент `errors.to_a`) возвращает сообщения об ошибках в дружелюбном формате с именем атрибута с прописной буквы, предшествующим каждому сообщению, как показано в следующем примере.
+```
+class Person < ApplicationRecord
+  def a_method_used_for_validation_purposes
+    errors.add(:name, "cannot contain the characters !@#%*()_-+=")
+  end
+end
+
+person = Person.create(name: "!@#")
+
+person.errors[:name]
+ # => ["cannot contain the characters !@#%*()_-+="]
+
+person.errors.full_messages
+ # => ["Name cannot contain the characters !@#%*()_-+="]
+```
+Эквивалентом `errors#add` является использование `<<` для добавления сообщения к массиву `errors.messages` атрибута:
+```
+  class Person < ApplicationRecord
+    def a_method_used_for_validation_purposes
+      errors.messages[:name] << "cannot contain the characters !@#%*()_-+="
+    end
+  end
+
+  person = Person.create(name: "!@#")
+
+  person.errors[:name]
+   # => ["cannot contain the characters !@#%*()_-+="]
+
+  person.errors.to_a
+   # => ["Name cannot contain the characters !@#%*()_-+="]
+```
+#### `errors.details`
+Можно указать тип валидатора в возвращаемом хэше подробностей об ошибке `detail` с помощью метода `errors.add`.
+```
+class Person < ApplicationRecord
+  def a_method_used_for_validation_purposes
+    errors.add(:name, :invalid_characters)
+  end
+end
+
+person = Person.create(name: "!@#")
+
+person.errors.details[:name]
+# => [{error: :invalid_characters}]
+```
+Чтобы расширить хэш подробностей об ошибке `details`, добавив, к примеру, недопустимые символы, можно передать дополнительные ключи в `errors.add`.
+```
+class Person < ApplicationRecord
+  def a_method_used_for_validation_purposes
+    errors.add(:name, :invalid_characters, not_allowed: "!@#%*()_-+=")
+  end
+end
+
+person = Person.create(name: "!@#")
+
+person.errors.details[:name]
+# => [{error: :invalid_characters, not_allowed: "!@#%*()_-+="}]
+```
+Все встроенные в Rails валидаторы заполняют хэш details соответствующим типом валидатора.
+#### `errors[:base]`
+Можете добавлять сообщения об ошибках, которые относятся к состоянию объекта в целом, а не к отдельному атрибуту. Этот метод можно использовать, если вы хотите сказать, что объект невалиден, независимо от значений его атрибутов. Поскольку `errors[:base]` массив, можете просто добавить строку к нему, и она будет использована как сообщение об ошибке.
+```
+class Person < ApplicationRecord
+  def a_method_used_for_validation_purposes
+    errors[:base] << "This person is invalid because ..."
+  end
+end
+```
+#### `errors.clear`
+Метод `clear` используется, когда вы намеренно хотите очистить все сообщения в коллекции errors. Естественно, вызов `errors.clear` для невалидного объекта фактически не сделает его валидным: сейчас коллекция `errors` будет пуста, но в следующий раз, когда вы вызовете `valid?` или любой метод, который пытается сохранить этот объект в базу данных, валидации выполнятся снова. Если любая из валидаций провалится, коллекция errors будет заполнена снова.
+```
+class Person < ApplicationRecord
+  validates :name, presence: true, length: { minimum: 3 }
+end
+
+person = Person.new
+person.valid? # => false
+person.errors[:name]
+ # => ["can't be blank", "is too short (minimum is 3 characters)"]
+
+person.errors.clear
+person.errors.empty? # => true
+
+person.save # => false
+
+person.errors[:name]
+ # => ["can't be blank", "is too short (minimum is 3 characters)"]
+```
+#### `errors.size`
+Метод `size` возвращает количество сообщений об ошибке для объекта.
+```
+class Person < ApplicationRecord
+  validates :name, presence: true, length: { minimum: 3 }
+end
+
+person = Person.new
+person.valid? # => false
+person.errors.size # => 2
+
+person = Person.new(name: "Andrea", email: "andrea@example.com")
+person.valid? # => true
+person.errors.size # => 0
+```
+### Отображение ошибок валидации во вьюхах <a name="2.3.8"></a>
+Как только вы создали модель и добавили валидации, если эта модель создается с помощью веб-формы, то вы, возможно хотите отображать сообщение об ошибке, когда одна из валидаций проваливается.
+
+Поскольку каждое приложение обрабатывает подобные вещи по-разному, в Rails нет какого-то хелпера вьюхи для непосредственной генерации этих сообщений. Однако, благодаря богатому набору методов, Rails в целом дает способ взаимодействия с валидациями, очень просто создать свой собственный. Кроме того, при генерации скаффолда, Rails поместит некоторый ERB в `_form.html.erb`, генерируемый для отображения полного списка ошибок этой модели.
+
+Допустим, у нас имеется модель, сохраненная в переменную экземпляра @article, это выглядит следующим образом:
+```
+<% if @article.errors.any? %>
+  <div id="error_explanation">
+    <h2><%= pluralize(@article.errors.count, "error") %> prohibited this article from being saved:</h2>
+    <ul>
+    <% @article.errors.full_messages.each do |msg| %>
+      <li><%= msg %></li>
+    <% end %>
+    </ul>
+  </div>
+<% end %>
+```
+Более того, при использовании хелперов форм Rails для создания форм, когда у поля происходит ошибка валидации, генерируется дополнительный `<div>` вокруг содержимого.
+```
+<div class="field_with_errors">
+ <input id="article_title" name="article[title]" size="30" type="text" value="">
+</div>
+```
+Этот `div` можно стилизовать по желанию. К примеру, дефолтный скаффолд, который генерирует Rails, добавляет это правило CSS:
+```
+.field_with_errors {
+  padding: 2px;
+  background-color: red;
+  display: table;
+}
+```
 
 
 
