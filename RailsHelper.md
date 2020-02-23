@@ -46,7 +46,16 @@
 * * 2.4.8 [Условные колбэки](#2.4.8)
 * * 2.4.9 [Классы колбэков](#2.4.9)
 * * 2.4.10 [Транзакционные колбэки](#2.4.10)
-
+* 2.5 [Связи (ассоциации)](#2.5)
+* * 2.5.1 [Зачем нужны связи?](#2.5.1)
+* * 2.5.2 [Типы связей](#2.5.2)
+* * 2.5.3 [Полезные советы и предупреждения](#2.5.3)
+* * 2.5.4 [Подробная информация по связи belongs_to](#2.5.4)
+* * 2.5.5 [Подробная информация по связи has_one](#2.5.5)
+* * 2.5.6 [Подробная информация по связи has_many](#2.5.6)
+* * 2.5.7 [Подробная информация по связи has_and_belongs_to_many](#2.5.7)
+* * 2.5.8 [Подробная информация по колбэкам и расширениям связи](#2.5.8)
+* * 2.5.9 [Наследование с единой таблицей (STI)](#2.5.9)
 
 3. [Вьюхи](#3)
 4. [Контроллеры](#4)
@@ -1942,7 +1951,109 @@ class Comment < ApplicationRecord
 end
 ```
 ### Классы колбэков <a name="2.4.9"></a>
+Вот пример, где создается класс с колбэком `after_destroy` для модели `PictureFile`:
+```
+class PictureFileCallbacks
+  def after_destroy(picture_file)
+    if File.exist?(picture_file.filepath)
+      File.delete(picture_file.filepath)
+    end
+  end
+end
+```
+При объявлении внутри класса, как выше, методы колбэка получают объект модели как параметр. Теперь можем использовать класс колбэка в модели:
+```
+class PictureFile < ApplicationRecord
+  after_destroy PictureFileCallbacks.new
+end
+```
+Заметьте, что нам нужно создать экземпляр нового объекта `PictureFileCallbacks`, после того, как объявили наш колбэк как отдельный метод. Это особенно полезно, если колбэки используют состояние экземпляра объекта. Часто, однако, более подходящим является объявление его в качестве метода класса.
+```
+class PictureFileCallbacks
+  def self.after_destroy(picture_file)
+    if File.exist?(picture_file.filepath)
+      File.delete(picture_file.filepath)
+    end
+  end
+end
+```
+Если метод колбэка объявляется таким образом, нет необходимости создавать экземпляр объекта `PictureFileCallbacks`.
+```
+class PictureFile < ApplicationRecord
+  after_destroy PictureFileCallbacks
+end
+```
+Внутри своего колбэк-класса можно создать сколько угодно колбэков.
+### Транзакционные колбэки <a name="2.4.10"></a>
+Имеются два дополнительных колбэка, которые включаются по завершению транзакции базы данных: `after_commit` и `after_rollback`. Эти колбэки очень похожи на колбэк `after_save`, за исключением того, что они не выполняются пока изменения в базе данных не будут подтверждены или обращены. Они наиболее полезны, когда вашим моделям Active Record необходимо взаимодействовать с внешними системами, не являющимися частью транзакции базы данных.
 
+Рассмотрим, допустим, предыдущий пример, где модели `PictureFile` необходимо удалить файл после того, как запись уничтожена. Если что-либо вызовет исключение после того, как был вызван колбэк `after_destroy`, и транзакция откатывается, файл будет удален и модель останется в противоречивом состоянии. Например, предположим, что `picture_file_2` в следующем коде не валидна, и метод `save!` вызовет ошибку.
+```
+PictureFile.transaction do
+  picture_file_1.destroy
+  picture_file_2.save!
+end
+```
+Используя колбэк `after_commit`, можно учесть этот случай.
+```
+class PictureFile < ApplicationRecord
+  after_commit :delete_picture_file_from_disk, on: :destroy
+
+  def delete_picture_file_from_disk
+    if File.exist?(filepath)
+      File.delete(filepath)
+    end
+  end
+end
+```
+> Опция `:on` определяет, когда будет запущен колбэк. Если не предоставить опцию `:on`, колбэк будет запущен для каждого экшна.
+
+Так как принято использовать колбэк `after_commit` только при создании, обновлении или удалении, есть псевдонимы для этих операций:
+* `after_create_commit`
+* `after_update_commit`
+* `after_destroy_commit` 
+```
+class PictureFile < ApplicationRecord
+  after_destroy_commit :delete_picture_file_from_disk
+
+  def delete_picture_file_from_disk
+    if File.exist?(filepath)
+      File.delete(filepath)
+    end
+  end
+end
+```
+> Колбэки `after_commit` и `after_rollback` вызываются для всех созданных, обновленных или удаленных моделей внутри блока транзакции. Однако, если какое-либо исключение вызовется в одном из этих колбэков, это исключение всплывет, и любые оставшиеся методы `after_commit` или `after_rollback` не будут выполнены. По сути, если код вашего колбэка может вызвать исключение, нужно для него вызвать `rescue`, и обработать его в колбэке, чтобы позволить запуститься другим колбэкам.
+
+> При одновременном **использовании `after_create_commit` и `after_update_commit`** в одной и той же модели сработает только колбэк, **определенный последним**, переопределив все остальные.
+
+```
+class User < ApplicationRecord
+  after_create_commit :log_user_saved_to_db
+  after_update_commit :log_user_saved_to_db
+
+  private
+  def log_user_saved_to_db
+    puts 'User was saved to database'
+  end
+end
+
+# ничего не выводит
+>> @user = User.create
+
+# обновление @user
+>> @user.save
+=> User was saved to database
+```
+Чтобы зарегистрировать **колбэки как для create, так и для update** экшнов, используйте **`after_commit`**.
+```
+class User < ApplicationRecord
+  after_commit :log_user_saved_to_db, on: [:create, :update]
+end
+```
+
+
+## Связи (ассоциации) <a name="2.5"></a>
 
 
 # Вьюхи <a name="3"></a>
