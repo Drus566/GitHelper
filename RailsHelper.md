@@ -2890,6 +2890,315 @@ class Book < ApplicationRecord
   belongs_to :author, -> { where active: true }
 end
 ```
+##### `includes`
+
+Метод `includes` можно использовать для определения связей второго порядка, которые должны быть лениво загружены при использовании этой связи. Например, рассмотрим эти модели:
+```
+class Chapter < ApplicationRecord
+  belongs_to :book
+end
+
+class Book < ApplicationRecord
+  belongs_to :author
+  has_many :chapters
+end
+
+class Author < ApplicationRecord
+  has_many :books
+end
+```
+Если вы часто получаете авторов непосредственно из глав (`@chapter.book.author`), то можно улучшить эффективность кода, включив авторов в связь между книгой и ее главами:
+```
+class Chapter < ApplicationRecord
+  belongs_to :book, -> { includes :author }
+end
+
+class Book < ApplicationRecord
+  belongs_to :author
+  has_many :chapters
+end
+
+class Author < ApplicationRecord
+  has_many :books
+end
+```
+> Нет необходимости в использовании `includes` для ближайших связей - то есть, если есть `Book belongs_to :author`, то `author` автоматически лениво загружается при необходимости.
+
+##### `readonly`
+
+При использовании `readonly`, связанный объект будет только для чтения при получении через связь.
+
+##### `select`
+
+Метод `select` позволяет переопределить SQL выражение SELECT, используемое для получения данных о связанном объекте. **По умолчанию Rails получает все столбцы**.
+
+> При использовании метода `select` на связи `belongs_to`, следует также установить опцию `:foreign_key` для гарантии правильных результатов.
+
+#### Существуют ли связанные объекты?
+
+Можно увидеть, существует ли какой-либо связанный объект, при использовании метода `association.nil?`:
+```
+if @book.author.nil?
+  @msg = "No author found for this book"
+end
+```
+#### Когда сохраняются объекты?
+
+Присвоение связи `belongs_to` не приводит к автоматическому сохранению ни самого объекта, ни связанного объекта.
+
+### Подробная информация по связи `has_one` <a name="2.5.5"></a>
+Связь `has_one` создает соответствие один-к-одному с другой моделью. В терминах базы данных эта связь сообщает, что другой класс содержит внешний ключ. Если этот класс содержит внешний ключ, следует использовать `belongs_to`.
+
+#### Методы, добавляемые `has_one`
+Когда объявляете связь `has_one`, объявляющий класс автоматически получает 6 методов, относящихся к связи:
+* `association`
+* `association=(associate)`
+* `build_association(attributes = {})`
+* `create_association(attributes = {})`
+* `create_association!(attributes = {})`
+* `reload_association`
+
+> При установлении новой связи `has_one` или `belongs_to`, следует использовать префикс `build_` для построения связи, в отличие от метода `association.build`, используемого для связей `has_many` или `has_and_belongs_to_many`. Чтобы создать связь, используйте префикс `create_`.
+
+##### `association`
+Метод `association` возвращает связанный объект, если таковой имеется. Если связанный объект не найден, возвращает `nil`.
+```
+@account = @supplier.account
+```
+Если связанный объект уже был получен из базы данных для этого объекта, возвращается кэшированная версия. Чтобы переопределить это поведение (и заставить прочитать из базы данных), вызовите `#reload_association` на родительском объекте.
+```
+@account = @supplier.reload_account
+```
+##### `association=(associate)`
+
+Метод `association=` привязывает связанный объект к этому объекту. Фактически это означает извлечение первичного ключа этого объекта и присвоение его значения внешнему ключу связанного объекта.
+```
+@supplier.account = @account
+```
+
+##### `build_association(attributes = {})`
+
+Метод `build_association` возвращает новый объект связанного типа. Этот объект будет экземпляром с переданными атрибутами, и будет установлена связь через внешний ключ, но связанный объект пока не будет сохранен.
+```
+@account = @supplier.build_account(terms: "Net 30")
+```
+
+##### `create_association(attributes = {})`
+
+Метод `create_association` возвращает новый объект связанного типа. Этот объект будет экземпляром с переданными атрибутами, будет установлена связь через внешний ключ, и, если он пройдет валидации, определенные в связанной модели, связанный объект будет сохранен
+```
+@account = @supplier.create_account(terms: "Net 30")
+```
+
+##### `create_association!(attributes = {})`
+
+Работает так же, как и вышеприведенный `create_association`, но вызывает `ActiveRecord::RecordInvalid`, если запись невалидна.
+
+#### Опции для `has_one`
+Хотя Rails использует разумные значения по умолчанию, работающие во многих ситуациях, бывают случаи, когда хочется изменить поведение связи `has_one`. Такая настройка легко выполнима с помощью передачи опции при создании связи. Например, эта связь использует две такие опции:
+```
+class Supplier < ApplicationRecord
+  has_one :account, class_name: "Billing", dependent: :nullify
+end
+```
+Связь has_one поддерживает эти опции:
+* `:as`
+* `:autosave`
+* `:class_name`
+* `:dependent`
+* `:foreign_key`
+* `:inverse_of`
+* `:primary_key`
+* `:source`
+* `:source_type`
+* `:through`
+* `:touch`
+* `:validate`
+
+##### `:as`
+Установка опции `:as` показывает, что это полиморфная связь.
+
+##### `:autosave`
+
+Если установить опцию `:autosave` в `true`, Rails сохранит любые загруженные связанные члены и уничтожит члены, помеченные для уничтожения, всякий раз, когда сохраняется родительский объект. Но установить `:autosave` в `false` - не то же самое, что не устанавливать опцию `:autosave`. Если опция `:autosave` отсутствует, то новые связанные объекты будут сохранены, но обновленные связанные объекты сохранены не будут.
+
+##### `:class_name`
+
+Если имя другой модели не может быть образовано из имени связи, можете использовать опцию `:class_name` для предоставления имени модели. Например, если поставщик имеет аккаунт, но фактическое имя модели, содержащей аккаунты, это `Billing`, можете установить это следующим образом:
+```
+class Supplier < ApplicationRecord
+  has_one :account, class_name: "Billing"
+end
+```
+
+##### `:dependent`
+
+Управляет тем, что произойдет со связанным объектом, когда его владелец будет уничтожен:
+* `:destroy` приведет к тому, что связанный объект также будет уничтожен
+* `:delete` приведет к тому, что связанный объект будет удален из базы данных напрямую (таким образом не будут выполнены колбэки)
+* `:nullify` приведет к тому, что внешний ключ будет установлен NULL. Столбцы полиморфного типа на полиморфных связях также обнуляются. Колбэки не выполняются.
+* `:restrict_with_exception` приведет к вызову исключения `ActiveRecord::DeleteRestrictionError`, если есть связанный объект
+* `:restrict_with_error` приведет к ошибке, добавляемой к владельцу, если есть связанный объект 
+
+Нельзя устанавливать или оставлять опцию `:nullify` для связей, имеющих ограничение NOT NULL. Если не установить `dependent` для уничтожения таких связей, вы не сможете изменить связанный объект, так как внешнему ключу изначально связанного объекта будет назначено недопустимое значение NULL.
+
+##### `:foreign_key`
+
+По соглашению Rails предполагает, что столбец, используемый для хранения внешнего ключа в этой модели, имеет имя модели с добавленным суффиксом `_id`. Опция `:foreign_key` позволяет установить имя внешнего ключа явно:
+```
+class Supplier < ApplicationRecord
+  has_one :account, foreign_key: "supp_id"
+end
+```
+> В любом случае, Rails не создаст столбцы внешнего ключа за вас. Вам необходимо явно определить их в своих миграциях.
+
+##### `:inverse_of`
+
+Опция `:inverse_of` определяет имя связи `belongs_to`, являющейся обратной для этой связи.
+```
+class Supplier < ApplicationRecord
+  has_one :account, inverse_of: :supplier
+end
+
+class Account < ApplicationRecord
+  belongs_to :supplier, inverse_of: :account
+end
+```
+
+##### `:primary_key`
+
+По соглашению, Rails предполагает, что столбец, используемый для хранения первичного ключа, это `id`. Вы можете переопределить это и явно определить первичный ключ с помощью опции `:primary_key`
+
+##### `:source`
+
+Опция `:source` определяет имя источника связи для связи `has_one :through`
+
+##### `:source_type`
+
+Опция `:source_type` определяет тип источника связи для связи `has_one :through`, который действует при полиморфной связи.
+```
+class Book < ApplicationRecord
+  has_one :format, polymorphic: true
+  has_one :dust_jacket, through: :format, source: :dust_jacket, source_type: "Hardback"
+end
+
+class Paperback < ApplicationRecord; end
+
+class Hardback < ApplicationRecord
+  has_one :dust_jacket
+end
+
+class DustJacket < ApplicationRecord; end
+```
+
+##### `:through`
+
+Опция `:through` определяет соединительную модель, через которую выполняется запрос. 
+
+##### `:touch`
+
+Если опция `:touch` установлена `true`, тогда временные метки `updated_at` или `updated_on` у связанного объекта будут установлены в текущее время всякий раз, когда этот объект будет сохранен или уничтожен:
+```
+class Supplier < ApplicationRecord
+  has_one :account, touch: true
+end
+
+class Account < ApplicationRecord
+  belongs_to :supplier
+end
+```
+В этом случае, сохранение или удаление поставщика обновит временную метку у связанного счета. Также можно указать конкретный атрибут временной метки для обновления:
+```
+class Supplier < ApplicationRecord
+  has_one :account, touch: :suppliers_updated_at
+end
+```
+
+##### `:validate`
+
+Если установите опцию `:validate` в `true`, тогда связанные объекты будут проходить валидацию всякий раз, когда вы сохраняете этот объект. По умолчанию она равна `false`: связанные объекты не проходят валидацию, когда этот объект сохраняется.
+
+#### Скоупы для `has_one`
+Иногда хочется настроить запрос, используемый `has_one`. Такая настройка может быть достигнута с помощью блока скоупа. Например:
+```
+class Supplier < ApplicationRecord
+  has_one :account, -> { where active: true }
+end
+```
+Внутри блока скоупа можно использовать любые стандартные методы запросов. Далее обсудим следующие из них:
+* `where`
+* `includes`
+* `readonly`
+* `select`
+
+##### `where`
+
+Метод `where` позволяет определить условия, которым должен отвечать связанный объект.
+```
+class Supplier < ApplicationRecord
+  has_one :account, -> { where "confirmed = 1" }
+end
+```
+
+##### `includes`
+
+Метод `includes` позволяет определить связи второго порядка, которые должны быть лениво загружены при использовании этой связи. Например, рассмотрим эти модели:
+```
+class Supplier < ApplicationRecord
+  has_one :account
+end
+
+class Account < ApplicationRecord
+  belongs_to :supplier
+  belongs_to :representative
+end
+
+class Representative < ApplicationRecord
+  has_many :accounts
+end
+```
+Если вы часто получаете `representatives` непосредственно из `suppliers` (`@supplier.account.representative`), то можно улучшить эффективность кода, включив `representatives` в связь между `suppliers` и `accounts`:
+```
+class Supplier < ApplicationRecord
+  has_one :account, -> { includes :representative }
+end
+
+class Account < ApplicationRecord
+  belongs_to :supplier
+  belongs_to :representative
+end
+
+class Representative < ApplicationRecord
+  has_many :accounts
+end
+```
+##### `readonly`
+
+При использовании `readonly`, связанный объект будет только для чтения при получении через связь
+
+##### `select`
+
+Метод `select` позволяет переопределить SQL выражение SELECT, используемое для получения данных о связанном объекте. По умолчанию Rails получает все столбцы.
+
+#### Существуют ли связанные объекты?
+Можно увидеть, существует ли какой-либо связанный объект, при использовании метода `association.nil?`:
+```
+if @supplier.account.nil?
+  @msg = "No account found for this supplier"
+end
+```
+
+#### Когда сохраняются объекты?
+
+Когда вы назначаете объект связью `has_one`, этот объект автоматически сохраняется (для того, чтобы обновить его внешний ключ). Кроме того, любой заменяемый объект также автоматически сохраняется, поскольку его внешний ключ также изменяется.
+
+Если одно из этих сохранений проваливается из-за ошибок валидации, тогда выражение назначения возвращает `false`, и само назначение отменяется.
+
+Если родительский объект (который объявляет связь `has_one`) является несохраненным (то есть `new_record?` возвращает `true`), тогда дочерние объекты не сохраняются. Они сохранятся автоматически, когда сохранится родительский объект.
+
+Если вы хотите назначить объект связью has_one без сохранения объекта, используйте метод `build_association`.
+
+### Подробная информация по связи `has_many` <a name="2.5.6"></a>
 
 
 # Вьюхи <a name="3"></a>
