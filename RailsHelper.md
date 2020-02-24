@@ -1927,6 +1927,7 @@ throw :abort
 ```
 > Вызов произвольного исключения может прервать код, который предполагает, что save и тому подобное не будут провалены подобным образом. Исключение `ActiveRecord::Rollback` чуть точнее сообщает Active Record, что происходит откат. Он подхватывается изнутри, но не перевызывает исключение.
 > Любое исключение, кроме `ActiveRecord::Rollback` или `ActiveRecord::RecordInvalid`, будет перевызвано Rails после того, как прервется цепочка колбэков. Вызов исключения, отличного от `ActiveRecord::Rollback` или `ActiveRecord::RecordInvalid`, может сломать код, который не ожидает, что методы, такие как `save` и `update` (которые обычно пытаются вернуть `true` или `false`) вызовут исключение.
+
 ### Колбэки для отношений <a name="2.4.7"></a>
 Колбэки работают с отношениями между моделями, и даже могут быть определены ими. Представим пример, где пользователь имеет много статей. Статьи пользователя должны быть уничтожены, если уничтожается пользователь. Давайте добавим колбэк `after_destroy` в модель `User` через ее отношения с моделью `Article`.
 ```
@@ -2077,6 +2078,818 @@ end
 
 
 ## Связи (ассоциации) <a name="2.5"></a>
+### Зачем нужны связи <a name="2.5.1"></a>
+```
+class Author < ApplicationRecord
+  has_many :books, dependent: :destroy
+end
+
+class Book < ApplicationRecord
+  belongs_to :author
+end
+```
+С этими изменениями создание новой книги для определенного автора проще:
+```
+@book = @author.books.create(published_at: Time.now)
+```
+Удаление автора и всех его книг намного проще:
+```
+@author.destroy
+```
+### Типы связей <a name="2.5.2"></a>
+Rails поддерживает шесть типов связей:
+* `belongs_to`
+* `has_one`
+* `has_many`
+* `has_many :through`
+* `has_one :through`
+* `has_and_belongs_to_many` 
+Связи реализуются с использованием макро-вызовов (macro-style calls), и, таким образом, вы можете декларативно добавлять возможности для своих моделей. Например, объявляя, что одна модель принадлежит (`belongs_to`) другой, вы указываете Rails сохранять информацию о первичном-внешнем ключах между экземплярами двух моделей, а также получаете несколько полезных методов, добавленных в модель.
+
+#### Связь `belongs_to`
+Связь belongs_to устанавливает соединение один-к-одному с другой моделью, когда один экземпляр объявляющей модели "принадлежит" одному экземпляру другой модели. Например, если в приложении есть авторы и книги, и одна книга может быть связана только с одним автором, нужно объявить модель book следующим образом:
+```
+class Book < ApplicationRecord
+  belongs_to :author
+end
+```
+> связи `belongs_to` обязаны использовать единственное число. Если использовать множественное число в вышеприведенном примере для связи `author` в модели `Book` и создать экземпляр с помощью `Book.create(authors: @author)`, будет сообщено "uninitialized constant `Book::Authors`". Это так, потому что Rails автоматически получает имя класса из имени связи. Если в имени связи неправильно использовано число, то получаемый класс также будет неправильного числа.
+
+Соответствующая миграция может выглядеть так:
+```
+class CreateOrders < ActiveRecord::Migration[5.0]
+  def change
+    create_table :authors do |t|
+      t.string :name
+      t.timestamps
+    end
+
+    create_table :books do |t|
+      t.belongs_to :author
+      t.datetime :published_at
+      t.timestamps
+    end
+  end
+end
+```
+#### Связь `has_one`
+Связь `has_one` также устанавливает соединение один-к-одному с другой моделью, но в несколько ином смысле (и с другими последствиями). Эта связь показывает, что каждый экземпляр модели содержит или обладает одним экземпляром другой модели. Например, если каждый поставщик имеет только один аккаунт, можете объявить модель supplier подобно этому:
+```
+class Supplier < ApplicationRecord
+  has_one :account
+end
+```
+Соответствующая миграция может выглядеть так:
+```
+class CreateSuppliers < ActiveRecord::Migration[5.0]
+  def change
+    create_table :suppliers do |t|
+      t.string :name
+      t.timestamps
+    end
+
+    create_table :accounts do |t|
+      t.belongs_to :supplier
+      t.string :account_number
+      t.timestamps
+    end
+  end
+end
+```
+В зависимости от применения, возможно потребуется создать индекс уникальности и/или ограничение внешнего ключа на указанный столбец таблицы `accounts`. В этом случае определение столбца может выглядеть так:
+```
+create_table :accounts do |t|
+  t.belongs_to :supplier, index: { unique: true }, foreign_key: true
+  # ...
+end
+```
+#### Связь `has_many`
+Связь has_many указывает на соединение один-ко-многим с другой моделью. Эта связь часто бывает на "другой стороне" связи `belongs_to`. Эта связь указывает на то, что каждый экземпляр модели имеет ноль или более экземпляров другой модели. Например, в приложении, содержащем авторов и книги, модель `author` может быть объявлена следующим образом:
+```
+class Author < ApplicationRecord
+  has_many :books
+end
+```
+Имя другой модели указывается во множественном числе при объявлении связи `has_many`.
+Соответствующая миграция может выглядеть так:
+```
+class CreateAuthors < ActiveRecord::Migration[5.0]
+  def change
+    create_table :authors do |t|
+      t.string :name
+      t.timestamps
+    end
+
+    create_table :books do |t|
+      t.belongs_to :author
+      t.datetime :published_at
+      t.timestamps
+    end
+  end
+end
+```
+####  Связь `has_many :through`
+Связь `has_many :through` часто используется для настройки соединения многие-ко-многим с другой моделью. Эта связь указывает, что объявляющая модель может соответствовать нулю или более экземплярам другой модели через третью модель. Например, рассмотрим поликлинику, где пациентам (patients) дают направления (appointments) к врачам (physicians). Соответствующие объявления связей будут выглядеть следующим образом:
+```
+class Physician < ApplicationRecord
+  has_many :appointments
+  has_many :patients, through: :appointments
+end
+
+class Appointment < ApplicationRecord
+  belongs_to :physician
+  belongs_to :patient
+end
+
+class Patient < ApplicationRecord
+  has_many :appointments
+  has_many :physicians, through: :appointments
+end
+```
+Соответствующая миграция может выглядеть так:
+```
+class CreateAppointments < ActiveRecord::Migration[5.0]
+  def change
+    create_table :physicians do |t|
+      t.string :name
+      t.timestamps
+    end
+
+    create_table :patients do |t|
+      t.string :name
+      t.timestamps
+    end
+
+    create_table :appointments do |t|
+      t.belongs_to :physician
+      t.belongs_to :patient
+      t.datetime :appointment_date
+      t.timestamps
+    end
+  end
+end
+```
+Коллекция соединительных моделей может управляться с помощью методов связи `has_many`. Например, если вы присвоите:
+```
+physician.patients = patients
+```
+Тогда будут автоматически созданы новые соединительные модели для вновь связанных объектов. Если некоторые из ранее существующих сейчас отсутствуют, их соединительные строки автоматически удаляются.
+
+> Автоматическое удаление соединительных моделей прямое, ни один из колбэков на уничтожение не включается.
+
+Связь **`has_many :through` также полезна для настройки "ярлыков" через вложенные связи `has_many`**. Например, если документ имеет много секций, а секция имеет много параграфов, иногда хочется получить просто коллекцию всех параграфов в документе. Это можно настроить следующим образом:
+```
+class Document < ApplicationRecord
+  has_many :sections
+  has_many :paragraphs, through: :sections
+end
+
+class Section < ApplicationRecord
+  belongs_to :document
+  has_many :paragraphs
+end
+
+class Paragraph < ApplicationRecord
+  belongs_to :section
+end
+```
+С определенным `through: :sections` Rails теперь понимает:
+```
+@document.paragraphs
+```
+#### Связь `has_one :through`
+Связь `has_one :through` настраивает соединение один-к-одному с другой моделью. Эта связь показывает, что объявляющая модель может быть связана с одним экземпляром другой модели через третью модель. Например, если каждый поставщик имеет один аккаунт, и каждый аккаунт связан с одной историей аккаунта, тогда модели могут выглядеть так:
+```
+class Supplier < ApplicationRecord
+  has_one :account
+  has_one :account_history, through: :account
+end
+
+class Account < ApplicationRecord
+  belongs_to :supplier
+  has_one :account_history
+end
+
+class AccountHistory < ApplicationRecord
+  belongs_to :account
+end
+```
+Соответствующая миграция может выглядеть так:
+```
+class CreateAccountHistories < ActiveRecord::Migration[5.0]
+  def change
+    create_table :suppliers do |t|
+      t.string :name
+      t.timestamps
+    end
+
+    create_table :accounts do |t|
+      t.belongs_to :supplier
+      t.string :account_number
+      t.timestamps
+    end
+
+    create_table :account_histories do |t|
+      t.belongs_to :account
+      t.integer :credit_rating
+      t.timestamps
+    end
+  end
+end
+```
+#### Связь `has_and_belongs_to_many`
+Связь `has_and_belongs_to_many` создает прямое соединение многие-ко-многим с другой моделью, без промежуточной модели. Например, если ваше приложение включает сборки (assemblies) и детали (parts), где каждый узел имеет много деталей, и каждая деталь встречается во многих сборках, модели можно объявить таким образом:
+```
+class Assembly < ApplicationRecord
+  has_and_belongs_to_many :parts
+end
+
+class Part < ApplicationRecord
+  has_and_belongs_to_many :assemblies
+end
+```
+Соответствующая миграция может выглядеть так:
+```
+class CreateAssembliesAndParts < ActiveRecord::Migration[5.0]
+  def change
+    create_table :assemblies do |t|
+      t.string :name
+      t.timestamps
+    end
+
+    create_table :parts do |t|
+      t.string :part_number
+      t.timestamps
+    end
+
+    create_table :assemblies_parts, id: false do |t|
+      t.belongs_to :assembly
+      t.belongs_to :part
+    end
+  end
+end
+```
+#### Выбор между `belongs_to` и `has_one`
+
+Если хотите настроить отношение один-к-одному между двумя моделями, необходимо добавить `belongs_to` к одной и `has_one` к другой. Как узнать что к какой?
+
+Различие в том, где помещен внешний ключ (он должен быть в таблице для класса, объявляющего связь `belongs_to`), но вы также должны думать о реальном значении данных. Отношение `has_one` говорит, что что-то принадлежит вам - то есть что что-то указывает на вас. Например, больше смысла в том, что поставщик владеет аккаунтом, чем в том, что аккаунт владеет поставщиком. Это означает, что правильные отношения подобны этому:
+```
+class Supplier < ApplicationRecord
+  has_one :account
+end
+
+class Account < ApplicationRecord
+  belongs_to :supplier
+end
+```
+Соответствующая миграция может выглядеть так:
+```
+class CreateSuppliers < ActiveRecord::Migration[5.2]
+  def change
+    create_table :suppliers do |t|
+      t.string :name
+      t.timestamps
+    end
+
+    create_table :accounts do |t|
+      t.bigint  :supplier_id
+      t.string  :account_number
+      t.timestamps
+    end
+
+    add_index :accounts, :supplier_id
+  end
+end
+```
+> Использование `t.bigint :supplier_id` указывает имя внешнего ключа очевидно и явно. В современных версиях Rails можно абстрагироваться от деталей реализации используя `t.references :supplier`
+
+#### Выбор между `has_many :through` и `has_and_belongs_to_many`
+Rails предлагает два разных способа объявления отношения многие-ко-многим между моделями. Простейший способ - использовать `has_and_belongs_to_many`, который позволяет создать связь напрямую:
+```
+class Assembly < ApplicationRecord
+  has_and_belongs_to_many :parts
+end
+
+class Part < ApplicationRecord
+  has_and_belongs_to_many :assemblies
+end
+```
+Второй способ объявить отношение многие-ко-многим - использование `has_many :through`. Это осуществляет связь не напрямую, а через соединяющую модель:
+```
+class Assembly < ApplicationRecord
+  has_many :manifests
+  has_many :parts, through: :manifests
+end
+
+class Manifest < ApplicationRecord
+  belongs_to :assembly
+  belongs_to :part
+end
+
+class Part < ApplicationRecord
+  has_many :manifests
+  has_many :assemblies, through: :manifests
+end
+```
+Простейший признак того, что нужно настраивать отношение `has_many :through` - если необходимо работать с моделью отношений как с независимым объектом. Если вам не нужно ничего делать с моделью отношений, проще настроить связь `has_and_belongs_to_many` (хотя нужно не забыть создать соединяющую таблицу в базе данных).
+
+Вы должны использовать `has_many :through`, если нужны валидации, колбэки или дополнительные атрибуты для соединительной модели.
+
+#### Полиморфные связи
+Полиморфные связи - это немного более "навороченный" вид связей. С полиморфными связями модель может принадлежать более чем одной модели, на одиночной связи. Например, имеется модель изображения, которая принадлежит или модели работника, или модели продукта. Вот как это объявляется:
+```
+class Picture < ApplicationRecord
+  belongs_to :imageable, polymorphic: true
+end
+
+class Employee < ApplicationRecord
+  has_many :pictures, as: :imageable
+end
+
+class Product < ApplicationRecord
+  has_many :pictures, as: :imageable
+end
+```
+Можно считать полиморфное объявление `belongs_to` как настройку интерфейса, которую может использовать любая другая модель. Из экземпляра модели `Employee` можно получить коллекцию изображений:` @employee.pictures`.
+
+Подобным образом можно получить `@product.pictures`.
+
+Если имеется экземпляр модели `Picture`, можно получить его родителя посредством `@picture.imageable`. Чтобы это работало, необходимо объявить столбец внешнего ключа и столбец типа в модели, объявляющей полиморфный интерфейс:
+```
+class CreatePictures < ActiveRecord::Migration[5.2]
+  def change
+    create_table :pictures do |t|
+      t.string  :name
+      t.bigint  :imageable_id
+      t.string  :imageable_type
+      t.timestamps
+    end
+
+    add_index :pictures, [:imageable_type, :imageable_id]
+  end
+end
+```
+Эта миграция может быть упрощена при использовании формы `t.references`:
+```
+class CreatePictures < ActiveRecord::Migration[5.0]
+  def change
+    create_table :pictures do |t|
+      t.string :name
+      t.references :imageable, polymorphic: true
+      t.timestamps
+    end
+  end
+end
+```
+#### Присоединение к себе
+При разработке модели данных иногда находится модель, которая может иметь отношение сама к себе. Например, мы хотим хранить всех работников в одной модели базы данных, но нам нужно отслеживать отношения начальник-подчиненный. Эта ситуация может быть смоделирована с помощью связей, присоединяемых к себе:
+```
+class Employee < ApplicationRecord
+  has_many :subordinates, class_name: "Employee",
+                          foreign_key: "manager_id"
+
+  belongs_to :manager, class_name: "Employee", optional: true
+end
+```
+С такой настройкой, вы можете получить `@employee.subordinates` и `@employee.manager`.
+
+В миграциях/схеме следует добавить столбец ссылки модели на саму себя.
+```
+class CreateEmployees < ActiveRecord::Migration[5.0]
+  def change
+    create_table :employees do |t|
+      t.references :manager
+      t.timestamps
+    end
+  end
+end
+```
+
+### Полезные советы и предупреждения <a name="2.5.3"></a>
+Вот некоторые вещи, которые необходимо знать для эффективного использования связей Active Record в вашем приложении на Rails:
+* Управление кэшированием
+* Предотвращение коллизий имен
+* Обновление схемы
+* Управление областью видимости связей
+* Двусторонние связи 
+
+#### Управление кэшированием
+Все методы связи построены вокруг кэширования, которое хранит результаты последних запросов доступными для будущих операций. Кэш является общим для разных методов. Например:
+```
+author.books                 # получаем книги из базы данных
+author.books.size            # используем кэшированную копию книг
+author.books.empty?          # используем кэшированную копию книг
+```
+Но что если вы хотите перезагрузить кэш, так как данные могли быть изменены другой частью приложения? Всего лишь вызовите `reload` на связи:
+```
+author.books                 # получаем книги из базы данных
+author.books.size            # используем кэшированную копию книг
+author.books.reload.empty?   # отказываемся от кэшированной копии книг
+                             # и снова обращаемся к базе данных
+```
+#### Предотвращение коллизий имен
+Вы не свободны в выборе любого имени для своих связей. Поскольку создание связи добавляет метод с таким именем в модель, будет плохой идеей дать связи имя, уже используемое как метод экземпляра `ActiveRecord::Base`. Метод связи тогда переопределит базовый метод, и что-нибудь перестанет работать. Например, `attributes` или `connection` плохие имена для связей.
+
+#### Обновление схемы
+Связи очень полезные, но не волшебные. Вы ответственны за содержание вашей схемы базы данных в соответствии со связями. На практике это означает две вещи, в зависимости от того, какой тип связей создаете. Для связей `belongs_to` нужно создать внешние ключи, а для связей `has_and_belongs_to_many` нужно создать подходящую соединительную таблицу.
+
+##### Создание внешних ключей для связей `belongs_to`
+Когда объявляете связь `belongs_to`, нужно создать внешние ключи, при необходимости. Например, рассмотрим эту модель:
+```
+class Book < ApplicationRecord
+  belongs_to :author
+end
+```
+Это объявление нуждается в поддержке соответствующим столбцом внешнего ключа в таблице `books`. Для совершенно новой таблицы миграция может выглядеть примерно так:
+```
+class CreateBooks < ActiveRecord::Migration[5.0]
+  def change
+    create_table :books do |t|
+      t.datetime   :published_at
+      t.string     :book_number
+      t.references :author
+    end
+  end
+end
+```
+В то время как для существующей таблицы, это может выглядеть следующим образом:
+```
+class AddAuthorToBooks < ActiveRecord::Migration[5.0]
+  def change
+    add_reference :books, :author
+  end
+end
+```
+Если необходимо принудительно использовать ссылочную целостность на уровне базы данных, добавьте опцию `foreign_key: true` в вышеприведенное объявление 'reference' столбца
+
+##### Создание соединительных таблиц для связей `has_and_belongs_to_many`
+Если вы создали связь `has_and_belongs_to_many`, необходимо обязательно создать соединительную таблицу. Если имя соединительной таблицы явно не указано с использованием опции `:join_table`, `Active Record` создает имя, используя алфавитный порядок имен классов. Поэтому соединение между моделями author и book по умолчанию даст значение имени таблицы "authors_books", так как "a" идет перед "b" в алфавитном порядке.
+
+> Приоритет между именами модели рассчитывается с использованием оператора `<=>` для `String`. Это означает, что если строки имеют разную длину и в своей короткой части они равны, тогда более длинная строка рассматривается как с более высоким лексическим приоритетом, по сравнению с короткой. Например, кто-то ожидает, что таблицы "paper_boxes" и "papers" создадут соединительную таблицу "papers_paper_boxes" поскольку имя "paper_boxes" длиннее, но фактически будет сгенерирована таблица с именем "paper_boxes_papers" (поскольку знак подчеркивания "`_`" лексикографически меньше, чем "s" в обычной кодировке).
+
+Какое бы ни было имя, вы должны вручную сгенерировать соединительную таблицу в соответствующей миграции. Например, рассмотрим эти связи:
+```
+class Assembly < ApplicationRecord
+  has_and_belongs_to_many :parts
+end
+
+class Part < ApplicationRecord
+  has_and_belongs_to_many :assemblies
+end
+```
+Теперь нужно написать миграцию для создания таблицы `assemblies_parts`. Эта таблица должна быть создана без первичного ключа:
+```
+class CreateAssembliesPartsJoinTable < ActiveRecord::Migration[5.2]
+  def change
+    create_table :assemblies_parts, id: false do |t|
+      t.bigint :assembly_id
+      t.bigint :part_id
+    end
+
+    add_index :assemblies_parts, :assembly_id
+    add_index :assemblies_parts, :part_id
+  end
+end
+```
+Мы передаем `id: false в create_table`, так как эта таблица не представляет модель. Это необходимо, чтобы связь работала правильно. Если вы видите странное поведение в связи `has_and_belongs_to_many`, например, искаженные ID моделей, или исключения в связи с конфликтом ID, скорее всего вы забыли убрать первичный ключ.
+
+Также можно использовать метод `create_join_table`
+```
+class CreateAssembliesPartsJoinTable < ActiveRecord::Migration[5.0]
+  def change
+    create_join_table :assemblies, :parts do |t|
+      t.index :assembly_id
+      t.index :part_id
+    end
+  end
+end
+```
+#### Управление областью видимости связей
+По умолчанию связи ищут объекты только в пределах области видимости текущего модуля. Это важно, когда вы объявляете модели Active Record внутри модуля. Например:
+```
+module MyApplication
+  module Business
+    class Supplier < ApplicationRecord
+      has_one :account
+    end
+
+    class Account < ApplicationRecord
+      belongs_to :supplier
+    end
+  end
+end
+```
+Это будет работать, так как оба класса `Supplier` и `Account` определены в пределах одной области видимости. Но нижеследующее не будет работать, потому что `Supplier` и `Account` определены в разных областях видимости:
+```
+module MyApplication
+  module Business
+    class Supplier < ApplicationRecord
+      has_one :account
+    end
+  end
+
+  module Billing
+    class Account < ApplicationRecord
+      belongs_to :supplier
+    end
+  end
+end
+```
+Для связи модели с моделью в другом пространстве имен, необходимо указать полное имя класса в объявлении связи:
+```
+module MyApplication
+  module Business
+    class Supplier < ApplicationRecord
+      has_one :account,
+        class_name: "MyApplication::Billing::Account"
+    end
+  end
+
+  module Billing
+    class Account < ApplicationRecord
+      belongs_to :supplier,
+        class_name: "MyApplication::Business::Supplier"
+    end
+  end
+end
+```
+#### Двусторонние связи
+Для связей нормально работать в двух направлениях, затребовав объявление в двух различных моделях:
+```
+class Author < ApplicationRecord
+  has_many :books
+end
+
+class Book < ApplicationRecord
+  belongs_to :author
+end
+```
+Active Record попытается автоматически определить, что эти две модели образуют двунаправленную связь, основываясь на имени связи. Таким образом, Active Record загрузит только одну копию объекта `Author`, делая ваше приложение более эффективным и предотвращая несогласованные данные:
+```
+a = Author.first
+b = a.books.first
+a.first_name == b.author.first_name # => true
+a.first_name = 'David'
+a.first_name == b.author.first_name # => true
+```
+Active Record **поддерживает автоматическое определение для большинства связей** со стандартными именами. Однако, Active Record **не будет автоматически определять двунаправленные связи**, содержащие область видимости или любые из следующих опций:
+* `:through`
+* `:foreign_key` 
+
+Например, рассмотрим следующие объявления моделей:
+```
+class Author < ApplicationRecord
+  has_many :books
+end
+
+class Book < ApplicationRecord
+  belongs_to :writer, class_name: 'Author', foreign_key: 'author_id'
+end
+```
+Active Record больше не будет автоматически распознавать двунаправленную связь:
+```
+a = Author.first
+b = a.books.first
+a.first_name == b.writer.first_name # => true
+a.first_name = 'David'
+a.first_name == b.writer.first_name # => false
+```
+Active Record представляет опцию `:inverse_of`, таким образом можно явно объявить двунаправленные связи:
+```
+class Author < ApplicationRecord
+  has_many :books, inverse_of: 'writer'
+end
+
+class Book < ApplicationRecord
+  belongs_to :writer, class_name: 'Author', foreign_key: 'author_id'
+end
+```
+Включив опцию `:inverse_of` в объявлении связи `has_many`, Active Record будет распознавать двунаправленную связь:
+```
+a = Author.first
+b = a.books.first
+a.first_name == b.writer.first_name # => true
+a.first_name = 'David'
+a.first_name == b.writer.first_name # => true
+```
+### Подробная информация по связи `belongs_to` <a name="2.5.4"></a>
+Связь `belongs_to` создает соответствие один-к-одному с другой моделью. В терминах базы данных эта связь сообщает, что этот класс содержит внешний ключ. Если внешний ключ содержит другой класс, вместо этого следует использовать `has_one`.
+#### Методы, добавляемые `belongs_to`
+Когда объявляете связь `belongs_to`, объявляющий класс автоматически получает 6 методов, относящихся к связи:
+* `association`
+* `association=(associate)`
+* `build_association(attributes = {})`
+* `create_association(attributes = {})`
+* `create_association!(attributes = {})`
+* `reload_association` 
+Во всех четырех методах association заменяется символом, переданным как первый аргумент в `belongs_to`. Например, имеем объявление:
+```
+class Book < ApplicationRecord
+  belongs_to :author
+end
+```
+Каждый экземпляр модели `Book` будет иметь эти методы:
+* `author`
+* `author=`
+* `build_author`
+* `create_author`
+* `create_author!`
+* `reload_author`
+> Когда устанавливаете новую связь `has_one` или `belongs_to`, следует использовать префикс `build_` для построения связи, в отличие от метода `association.build`, используемый для связей `has_many или has_and_belongs_to_many`. Чтобы создать связь, используйте префикс `create_`.
+##### `association`
+Метод `association` возвращает связанный объект, если он есть. Если объекта нет, возвращает `nil`.
+```
+@author = @book.author
+```
+Если связанный объект уже был получен из базы данных для этого объекта, возвращается кэшированная версия. Чтобы переопределить это поведение (и заставить прочитать из базы данных), вызовите `#reload_association` на родительском объекте.
+```
+@author = @book.reload_author
+```
+##### `association=(associate)`
+
+Метод `association=` привязывает связанный объект к этому объекту. Фактически это означает извлечение первичного ключа из связанного объекта и присвоение его значения внешнему ключу.
+```
+@book.author = @author
+```
+##### `build_association(attributes = {})`
+
+Метод `build_association` возвращает новый объект связанного типа. Этот объект будет экземпляром с переданными атрибутами, будет установлена связь с внешним ключом этого объекта, но связанный объект пока не будет сохранен.
+```
+@author = @book.build_author(author_number: 123,
+                                  author_name: "John Doe")
+```
+##### `create_association(attributes = {})`
+
+Метод `create_association` возвращает новый объект связанного типа. Этот объект будет экземпляром с переданными атрибутами, будет установлена связь с внешним ключом этого объекта, и, если он пройдет валидации, определенные в связанной модели, связанный объект будет сохранен.
+```
+@author = @book.create_author(author_number: 123, author_name: "John Doe")
+```
+##### `create_association!(attributes = {})`
+
+Работает так же, как и вышеприведенный `create_association`, но вызывает `ActiveRecord::RecordInvalid`, если запись невалидна.
+
+#### Опции для `belongs_to`
+Хотя Rails использует разумные значения по умолчанию, работающие во многих ситуациях, бывают случаи, когда хочется изменить поведение связи `belongs_to`. Такая настройка легко выполнима с помощью передачи опций и блоков со скоупом при создании связи. Например, эта связь использует две такие опции:
+```
+class Book < ApplicationRecord
+  belongs_to :author, touch: :books_updated_at,
+    counter_cache: true
+end
+```
+Связь `belongs_to` поддерживает эти опции:
+* `:autosave`
+* `:class_name`
+* `:counter_cache`
+* `:dependent`
+* `:foreign_key`
+* `:primary_key`
+* `:inverse_of`
+* `:polymorphic`
+* `:touch`
+* `:validate`
+* `:optional` 
+
+##### `:autosave`
+Если установить опцию `:autosave` в `true`, Rails сохранит любые загруженные связанные члены и уничтожит члены, помеченные для уничтожения, всякий раз, когда сохраняется родительский объект. Но установить `:autosave в false` - не то же самое, что не устанавливать опцию `:autosave`. Если опция `:autosave` отсутствует, то новые связанные объекты будут сохранены, но обновленные связанные объекты сохранены не будут.
+##### `:class_name`
+Если имя другой модели не может быть получено из имени связи, можете использовать опцию `:class_name` для предоставления имени модели. Например, если книга принадлежит автору, но фактическое имя модели, содержащей авторов, `Patron`, можете установить это следующим образом:
+```
+class Book < ApplicationRecord
+  belongs_to :author, class_name: "Patron"
+end
+```
+##### `:counter_cache`
+Опция `:counter_cache` может быть использована, чтобы сделать поиск количества принадлежащих объектов более эффективным. Рассмотрим эти модели:
+```
+class Book < ApplicationRecord
+  belongs_to :author
+end
+class Author < ApplicationRecord
+  has_many :books
+end
+```
+С этими объявлениями запрос значения `@author.books.size` требует обращения к базе данных для выполнения запроса `COUNT(*)`. Чтобы этого избежать, можете добавить кэш счетчика в принадлежащую модель:
+```
+class Book < ApplicationRecord
+  belongs_to :author, counter_cache: true
+end
+class Author < ApplicationRecord
+  has_many :books
+end
+```
+С этим объявлением, Rails будет хранить в кэше актуальное значение и затем возвращать это значение в отклик на метод `size`.
+
+Хотя опция `:counter_cache` определяется в модели, включающей определение `belongs_to`, фактический столбец должен быть добавлен в связанную (`has_many`) модель. В вышеописанном случае, необходимо добавить столбец, названный `books_count` в модель `Author`.
+
+Имя столбца по умолчанию можно переопределить, указав произвольное имя столбца в объявлении `counter_cache` вместо `true`. Например, для использования `count_of_books` вместо `books_count`:
+```
+class Book < ApplicationRecord
+  belongs_to :author, counter_cache: :count_of_books
+end
+class Author < ApplicationRecord
+  has_many :books
+end
+```
+> Опцию `:counter_cache` необходимо указывать только на стороне `belongs_to` связи. Столбцы кэша счетчика добавляются в список атрибутов модели только для чтения посредством `attr_readonly`.
+
+##### `:dependent`
+
+Если установить опцию `:dependent` в:
+* `:destroy`, когда объект будет уничтожен, `destroy` будет вызван на его связанных объектах.
+* `:delete`, когда объект будет уничтожен, все его связанные объекты будут удалены прямо из базы данных без вызова метода `destroy`. 
+
+> Не следует определять эту опцию в связи `belongs_to`, которая соединена со связью `has_many` в другом классе. Это приведет к "битым" связям в записях вашей базы данных.
+
+##### `:foreign_key`
+
+По соглашению Rails предполагает, что столбец, используемый для хранения внешнего ключа в этой модели, имеет имя модели с добавленным суффиксом `_id`. Опция `:foreign_key` позволяет установить имя внешнего ключа явно:
+```
+class Book < ApplicationRecord
+  belongs_to :author, class_name: "Patron", foreign_key: "patron_id"
+end
+```
+> В любом случае, Rails не создаст столбцы внешнего ключа за вас. Вам необходимо явно определить их в своих миграциях.
+
+##### `:primary_key`
+
+По соглашению Rails предполагает, что для первичного ключа используется столбец `id` в таблице. Опция `:primary_key` позволяет указать иной столбец.
+
+Например, имеется таблица `users` с `guid` в качестве первичного ключа. Если мы хотим отдельную таблицу `todos`, содержащую внешний ключ `user_id` из столбца `guid`, для этого можно использовать `primary_key` следующим образом:
+```
+class User < ApplicationRecord
+  self.primary_key = 'guid' # primary key is guid and not id
+end
+
+class Todo < ApplicationRecord
+  belongs_to :user, primary_key: 'guid'
+end
+```
+При выполнении `@user.todos.create`, у записи `@todo` будет значение `user_id` таким же, как значение `guid` у `@user`.
+
+##### `:inverse_of`
+
+Опция `:inverse_of` определяет имя связи `has_many` или `has_one`, являющейся противоположностью для этой связи.
+```
+class Author < ApplicationRecord
+  has_many :books, inverse_of: :author # книга имеет автора book.author
+end
+
+class Book < ApplicationRecord
+  belongs_to :author, inverse_of: :books # автор имеет книги author.books
+end
+```
+##### `:polymorphic`
+
+Передача `true` для опции `:polymorphic` показывает, что это полиморфная связь.
+
+##### `:touch`
+
+Если установите опцию `:touch` в `true`, то временные метки `updated_at` или `updated_on` на связанном объекте будут установлены в текущее время всякий раз, когда этот объект будет сохранен или уничтожен:
+```
+class Book < ApplicationRecord
+  belongs_to :author, touch: true
+end
+
+class Author < ApplicationRecord
+  has_many :books
+end
+```
+В этом случае, сохранение или уничтожение книги обновит временную метку на связанном авторе. **Также можно определить конкретный атрибут** временной метки для обновления:
+```
+class Book < ApplicationRecord
+  belongs_to :author, touch: :books_updated_at
+end
+```
+##### `:validate`
+
+Если установите опцию `:validate` в `true`, тогда связанные объекты будут проходить валидацию всякий раз, когда вы сохраняете этот объект. По умолчанию она равна `false`: связанные объекты не проходят валидацию, когда этот объект сохраняется.
+
+##### `:optional`
+
+Если установить `:optional` в `true`, тогда наличие связанных объектов не будет валидироваться. По умолчанию установлено в `false`.
+
+#### Скоупы для `belongs_to`
+Иногда хочется настроить запрос, используемый `belongs_to`. Такая настройка может быть достигнута с помощью блока скоупа. Например:
+```
+class Book < ApplicationRecord
+  belongs_to :author, -> { where active: true }
+end
+```
+Внутри блока скоупа можно использовать любые стандартные методы запросов. Далее обсудим следующие из них:
+* `where`
+* `includes`
+* `readonly`
+* `select` 
+
+##### `where`
+
+Метод `where` позволяет определить условия, которым должен отвечать связанный объект.
+```
+class Book < ApplicationRecord
+  belongs_to :author, -> { where active: true }
+end
+```
 
 
 # Вьюхи <a name="3"></a>
