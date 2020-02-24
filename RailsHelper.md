@@ -3199,6 +3199,888 @@ end
 Если вы хотите назначить объект связью has_one без сохранения объекта, используйте метод `build_association`.
 
 ### Подробная информация по связи `has_many` <a name="2.5.6"></a>
+Связь `has_many` создает отношение один-ко-многим с другой моделью. В терминах базы данных эта связь говорит, что другой класс будет иметь внешний ключ, относящийся к экземплярам этого класса.
+
+#### Методы, добавляемые `has_many`
+Когда объявляете связь `has_many`, объявляющий класс автоматически получает 17 методов, относящихся к связи:
+* `collection`
+* `collection<<(object, ...)`
+* `collection.delete(object, ...)`
+* `collection.destroy(object, ...)`
+* `collection=(objects)`
+* `collection_singular_ids`
+* `collection_singular_ids=(ids)`
+* `collection.clear`
+* `collection.empty?`
+* `collection.size`
+* `collection.find(...)`
+* `collection.where(...)`
+* `collection.exists?(...)`
+* `collection.build(attributes = {}, ...)`
+* `collection.create(attributes = {})`
+* `collection.create!(attributes = {})`
+* `collection.reload` 
+Во всех этих методах `collection` заменяется символом, переданным как первый аргумент в `has_many`, и `collection_singular` заменяется версией в единственном числе этого символа. Например, имеем объявление:
+```
+class Author < ApplicationRecord
+  has_many :books
+end
+```
+Каждый экземпляр модели `Author` будет иметь эти методы:
+* `books`
+* `books<<(object, ...)`
+* `books.delete(object, ...)`
+* `books.destroy(object, ...)`
+* `books=(objects)`
+* `book_ids`
+* `book_ids=(ids)`
+* `books.clear`
+* `books.empty?`
+* `books.size`
+* `books.find(...)`
+* `books.where(...)`
+* `books.exists?(...)`
+* `books.build(attributes = {}, ...)`
+* `books.create(attributes = {})`
+* `books.create!(attributes = {})`
+* `books.reload`
+
+##### `collection`
+
+Метод `collection` возвращает Relation всех связанных объектов. Если нет связанных объектов, он возвращает пустой Relation.
+```
+@books = @author.books
+```
+
+##### `collection<<(object, ...)`
+
+Метод `collection<<` добавляет один или более объектов в коллекцию, устанавливая их внешние ключи равными первичному ключу вызывающей модели.
+```
+@author.books << @book1
+```
+##### `collection.delete(object, ...)`
+
+Метод `collection.delete` убирает один или более объектов из коллекции, установив их внешние ключи в NULL.
+```
+@author.books.delete(@book1)
+```
+> Объекты будут в дополнение уничтожены, если связаны с `dependent: :destroy`, и удалены, если они связаны с `dependent: :delete_all`.
+
+##### `collection.destroy(object, ...)`
+
+Метод `collection.destroy` убирает один или более объектов из коллекции, выполняя `destroy` для каждого объекта.
+```
+@author.books.destroy(@book1)
+```
+> Объекты будут всегда удаляться из базы данных, игнорируя опцию `:dependent`.
+
+##### `collection=(objects)`
+
+Метод `collection=` делает коллекцию содержащей только представленные объекты, добавляя и удаляя по мере необходимости. Изменения будут персистентными в базе данных
+
+##### `collection_singular_ids`
+
+Метод `collection_singular_ids` возвращает массив `id` объектов в коллекции.
+```
+@book_ids = @author.book_ids
+```
+
+##### `collection_singular_ids=(ids)`
+
+Метод `collection_singular_ids=` делает коллекцию содержащей только объекты, идентифицированные представленными значениями первичного ключа, добавляя и удаляя по мере необходимости. Изменения будут персистентными в базе данных.
+
+##### `collection.clear`
+
+Метод `collection.clear` убирает каждый объект из коллекции в соответствии со стратегией, определенной опцией `dependent`. Если опция не указана, он следует стратегии по умолчанию. Стратегия по умолчанию для `has_many :through` это `delete_all`, а для связей `has_many` — установить их внешние ключи в NULL.
+```
+@author.books.clear
+```
+Объекты будут удалены, если они связаны с помощью `dependent: :destroy`, как и с помощью `dependent: :delete_all`.
+
+##### `collection.empty?`
+
+Метод `collection.empty?` возвращает `true`, если коллекция не содержит каких-либо связанных объектов.
+```
+<% if @author.books.empty? %>
+  No Books Found
+<% end %>
+```
+
+##### `collection.size`
+
+Метод `collection.size` возвращает количество объектов в коллекции.
+```
+@book_count = @author.books.size
+```
+
+##### `collection.find(...)`
+
+Метод `collection.find` ищет объекты в коллекции. Он использует тот же синтаксис и опции, что и `ActiveRecord::Base.find`.
+```
+@available_book = @author.books.find(1)
+```
+
+##### `collection.where(...)`
+
+Метод `collection.where` ищет объекты в коллекции, основываясь на переданных условиях, но объекты загружаются лениво, что означает, что база данных запрашивается только когда происходит доступ к объекту(-там).
+```
+@available_books = @author.books.where(available: true) # Пока нет запроса
+@available_book = @available_books.first # Теперь база данных будет запрошена
+```
+
+##### `collection.exists?(...)`
+
+Метод `collection.exists?` проверяет, существует ли в коллекции объект, отвечающий представленным условиям. Он использует тот же синтаксис и опции, что и `ActiveRecord::Base.exists?`.
+
+##### `collection.build(attributes = {}, ...)`
+
+Метод `collection.build` возвращает один или массив объектов связанного типа. Объект(ы) будут экземплярами с переданными атрибутами, будет создана ссылка через их внешние ключи, но связанные объекты не будут пока сохранены.
+```
+@book = @author.books.build(published_at: Time.now,
+                                book_number: "A12345")
+
+@books = @author.books.build([
+  { published_at: Time.now, book_number: "A12346" },
+  { published_at: Time.now, book_number: "A12347" }])
+```
+
+##### `collection.create(attributes = {})`
+
+Метод `collection.create` возвращает один или массив новых объектов связанного типа. Объект(ы) будут экземплярами с переданными атрибутами, будет создана ссылка через его внешний ключ, и, если он пройдет валидации, определенные в связанной модели, связанный объект будет сохранен
+```
+@book = @author.books.create(published_at: Time.now,
+                                 book_number: "A12345")
+
+@books = @author.books.create([
+  { published_at: Time.now, book_number: "A12346" },
+  { published_at: Time.now, book_number: "A12347" }])
+```
+
+##### `collection.create!(attributes = {})`
+
+Работает так же, как вышеприведенный `collection.create`, но вызывает `ActiveRecord::RecordInvalid`, если запись невалидна.
+
+##### `collection.reload`
+
+Метод `collection.reload` возвращает Relation всех связанных объектов, принудительно читая базу данных. Если нет связанных объектов, он возвращает пустой Relation.
+```
+@books = @author.books.reload
+```
+
+#### Опции для `has_many`
+
+Хотя Rails использует разумные значения по умолчанию, работающие во многих ситуациях, бывают случаи, когда хочется изменить поведение связи `has_many`. Такая настройка легко выполнима с помощью передачи опций при создании связи. Например, эта связь использует две такие опции:
+```
+class Author < ApplicationRecord
+  has_many :books, dependent: :delete_all, validate: false
+end
+```
+Связь `has_many` поддерживает эти опции:
+* `:as`
+* `:autosave`
+* `:class_name`
+* `:counter_cache`
+* `:dependent`
+* `:foreign_key`
+* `:inverse_of`
+* `:primary_key`
+* `:source`
+* `:source_type`
+* `:through`
+* `:validate` 
+
+##### `:as`
+
+Установка опции `:as` показывает, что это полиморфная связь. 
+
+##### `:autosave`
+
+Если установить опцию `:autosave` в `true`, Rails сохранит любые загруженные связанные члены и уничтожит члены, помеченные для уничтожения, всякий раз, когда сохраняется родительский объект. Но установить `:autosave` в `false` - не то же самое, что не устанавливать опцию `:autosave`. Если опция `:autosav`e отсутствует, то новые связанные объекты будут сохранены, но обновленные связанные объекты сохранены не будут.
+
+##### `:class_name`
+
+Если имя другой модели не может быть произведено из имени связи, можете использовать опцию `:class_name` для предоставления имени модели. Например, если автор имеет много книг, но фактическое имя модели, содержащей книги, это `Transaction`, можете установить это следующим образом:
+```
+class Author < ApplicationRecord
+  has_many :books, class_name: "Transaction"
+end
+```
+
+##### `:counter_cache`
+
+Эта опция используется для настройки произвольно названного `:counter_cache`. Эту опцию нужно использовать, только если вы изменили имя вашего `:counter_cache` у связи `belongs_to`.
+
+##### `:dependent`
+
+Управляет тем, что произойдет со связанными объектами, когда его владелец будет уничтожен:
+* `:destroy` приведет к тому, что связанные объекты также будут уничтожены
+* `:delete_all` приведет к тому, что связанные объекты будут удалены из базы данных напрямую (таким образом не будут выполнены колбэки)
+* `:nullify` приведет к тому, что внешние ключи будет установлен NULL. Столбцы полиморфного типа на полиморфных связях также обнуляются. Колбэки не выполняются.
+* `:restrict_with_exception` приведет к вызову исключения `ActiveRecord::DeleteRestrictionError`, если есть какой-нибудь связанный объект
+* `:restrict_with_error` приведет к ошибке, добавляемой к владельцу, если есть какой-нибудь связанный объект 
+
+> Опции `:destroy` и `:delete_all` также влияют на семантику методов `collection.delete` и `collection=`, вынуждая их удалять связанные объекты при удалении из коллекции.
+
+##### `:foreign_key`
+
+По соглашению Rails предполагает, что столбец, используемый для хранения внешнего ключа в этой модели, имеет имя модели с добавленным суффиксом `_id`. Опция `:foreign_key` позволяет установить имя внешнего ключа явно:
+```
+class Author < ActiveRecord::Base
+  has_many :books, foreign_key: "cust_id"
+end
+```
+##### `:inverse_of`
+
+Опция `:inverse_of` определяет имя связи `belongs_to`, являющейся обратной для этой связи.
+```
+class Author < ApplicationRecord
+  has_many :books, inverse_of: :author
+end
+
+class Book < ApplicationRecord
+  belongs_to :author, inverse_of: :books
+end
+```
+
+##### `:primary_key`
+
+По соглашению, Rails предполагает, что столбец, используемый для хранения первичного ключа, это `id`. Вы можете переопределить это и явно определить первичный ключ с помощью опции `:primary_key`.
+
+Допустим, в таблице `users` есть `id` в качестве `primary_key`, но также имеется столбец `guid`. Имеется требование, что таблица `todos` должна содержать значение столбца `guid`, а не значение `id`. Это достигается следующим образом:
+```
+class User < ApplicationRecord
+  has_many :todos, primary_key: :guid
+end
+```
+Теперь, если выполнить `@todo = @user.todos.create`, то в запись `@todo` значение `user_id` будет таким же, как значение `guid` в `@user`.
+
+##### `:source`
+
+Опция `:source` определяет имя источника связи для связи `has_many :through`. Эту опцию нужно использовать, только если имя источника связи не может быть автоматически выведено из имени связи.
+```
+class Author < ApplicationRecord
+  has_many :books
+  has_many :paperbacks, through: :books, source: :format, source_type: "Paperback"
+end
+
+class Book < ApplicationRecord
+  has_one :format, polymorphic: true
+end
+
+class Hardback < ApplicationRecord; end
+class Paperback < ApplicationRecord; end
+```
+
+##### `:source_type`
+
+Опция `:source_type` определяет тип источника связи для связи `has_many :through`, который действует при полиморфной связи
+
+##### `:through`
+
+Опция `:through` определяет соединительную модель, через которую выполняется запрос. Связи `has_many :through` предоставляют способ осуществления отношений многие-ко-многим
+
+##### `:validate`
+
+Если установите опцию `:validate` в `false`, тогда связанные объекты не будут проходить валидацию всякий раз, когда вы сохраняете этот объект. По умолчанию она равна `true`: связанные объекты проходят валидацию, когда этот объект сохраняется.
+
+#### Скоупы для `has_many`
+
+Иногда хочется настроить запрос, используемый has_many. Такая настройка может быть достигнута с помощью блока скоупа. Например:
+```
+class Author < ApplicationRecord
+  has_many :books, -> { where processed: true }
+end
+```
+Внутри блока скоупа можно использовать любые стандартные методы запросов. Далее обсудим следующие из них:
+* `where`
+* `extending`
+* `group`
+* `includes`
+* `limit`
+* `offset`
+* `order`
+* `readonly`
+* `select`
+* `distinct` 
+
+##### `where`
+
+Метод `where` позволяет определить условия, которым должен отвечать связанный объект.
+```
+class Author < ApplicationRecord
+  has_many :confirmed_books, -> { where "confirmed = 1" },
+    class_name: "Book"
+end
+
+Также можно задать условия хэшем:
+
+class Author < ApplicationRecord
+  has_many :confirmed_books, -> { where confirmed: true },
+                              class_name: "Book"
+end
+```
+> При использовании опции `where` хэшем, при создании записи через эту связь будет автоматически применен скоуп с использованием хэша. В этом случае при использовании` @author.confirmed_books.create` или `@author.confirmed_books.build` будут созданы книги, в которых столбец `confirmed` будет иметь значение `true`.
+
+##### `extending`
+
+Метод `extending` определяет именованный модуль для расширения прокси связи.
+
+##### `group`
+
+Метод `group` предоставляет имя атрибута, по которому группируется результирующий набор, используя выражение GROUP BY в поисковом SQL.
+```
+class Author < ApplicationRecord
+  has_many :chapters, -> { group 'books.id' },
+                      through: :books
+end
+```
+
+##### `includes`
+
+Можете использовать метод `includes` для определения связей второго порядка, которые должны быть нетерпеливо загружены, когда эта связь используется. Например, рассмотрим эти модели:
+```
+class Author < ApplicationRecord
+  has_many :books
+end
+
+class Book < ApplicationRecord
+  belongs_to :author
+  has_many :chapters
+end
+
+class Chapter < ApplicationRecord
+  belongs_to :book
+end
+```
+Если вы часто получаете главы прямо из авторов (`@author.books.chapters`), тогда можете сделать свой код более эффективным, включив главы в связь от авторов к книгам:
+```
+class Author < ApplicationRecord
+  has_many :books, -> { includes :chapters }
+end
+
+class Book < ApplicationRecord
+  belongs_to :author
+  has_many :chapters
+end
+
+class Chapter < ApplicationRecord
+  belongs_to :book
+end
+```
+##### `limit`
+
+Метод `limit` позволяет ограничить общее количество объектов, которые будут выбраны через связь.
+```
+class Author < ApplicationRecord
+  has_many :recent_books,
+    -> { order('published_at desc').limit(100) },
+    class_name: "Book"
+end
+```
+
+##### `offset`
+
+Метод `offset` позволяет определить начальное смещение для выбора объектов через связь. Например, -> { offset(11) } пропустит первые 11 записей.
+
+##### `order`
+
+Метод `order` предписывает порядок, в котором связанные объекты будут получены (в синтаксисе SQL, используемом в условии ORDER BY).
+```
+class Author < ApplicationRecord
+  has_many :books, -> { order "date_confirmed DESC" }
+end
+```
+
+##### `readonly`
+
+При использовании метода `readonly`, связанные объекты будут доступны только для чтения, когда получены посредством связи.
+
+##### `select`
+
+Метод `select` позволяет переопределить SQL условие SELECT, которое используется для получения данных о связанном объекте. По умолчанию Rails получает все столбцы.
+
+> Если укажете свой собственный select, не забудьте включить столбцы первичного ключа и внешнего ключа в связанной модели. Если так не сделать, Rails выдаст ошибку.
+
+##### `distinct`
+
+Используйте метод `distinct`, чтобы убирать дубликаты из коллекции. Это полезно в сочетании с опцией `:through`.
+```
+class Person < ApplicationRecord
+  has_many :readings
+  has_many :articles, through: :readings
+end
+
+article   = Article.create(name: 'a1')
+person.articles << article
+person.articles << article
+person.articles.inspect # => [#<Article id: 5, name: "a1">, #<Article id: 5, name: "a1">]
+Reading.all.inspect     # => [#<Reading id: 12, person_id: 5, article_id: 5>, #<Reading id: 13, person_id: 5, article_id: 5>]
+```
+В вышеописанной задаче два `reading`, и `person.articles` выявляет их оба, даже если эти записи указывают на одну и ту же статью.
+
+Давайте установим `distinct`:
+```
+class Person
+  has_many :readings
+  has_many :articles, -> { distinct }, through: :readings
+end
+
+person = Person.create(name: 'Honda')
+article   = Article.create(name: 'a1')
+person.articles << article
+person.articles << article
+person.articles.inspect # => [#<Article id: 7, name: "a1">]
+Reading.all.inspect     # => [#<Reading id: 16, person_id: 7, article_id: 7>, #<Reading id: 17, person_id: 7, article_id: 7>]
+```
+В вышеописанной задаче все еще два `reading`. Однако `person.articles` показывает только одну статью, поскольку коллекция загружает только уникальные записи.
+
+Если вы хотите быть уверенными, что **после вставки все записи персистентной связи различны** (и, таким образом, убедиться, что при просмотре связи никогда не будет дублирующихся записей), следует добавить уникальный индекс для самой таблицы. Например, если таблица называется `readings`, и вы хотите убедиться, что все публикации могут быть добавлены к персоне один раз, следует добавить в миграцию:
+```
+add_index :readings, [:person_id, :article_id], unique: true
+```
+Как только у вас появится этот индекс уникальности, попытка добавить статью к персоне дважды вызовет ошибку `ActiveRecord::RecordNotUnique`:
+```
+person = Person.create(name: 'Honda')
+article = Article.create(name: 'a1')
+person.articles << article
+person.articles << article # => ActiveRecord::RecordNotUnique
+```
+Отметьте, что проверка уникальности при использовании чего-то, наподобие `include?`, подвержено состояниям гонки. Не пытайтесь использовать `include?` для соблюдения уникальности в связи. Используя вышеприведенный пример со статьёй, нижеследующий код вызовет гонку, поскольку несколько пользователей могут использовать его одновременно:
+```
+person.articles << article unless person.articles.include?(post)
+```
+#### Когда сохраняются объекты? 
+Когда вы назначаете объект связью `has_many`, этот объект автоматически сохраняется (для того, чтобы обновить его внешний ключ). Если назначаете несколько объектов в одном выражении, они все будут сохранены.
+
+Если одно из этих сохранений проваливается из-за ошибок валидации, тогда выражение назначения возвращает `false`, и само назначение отменяется.
+
+Если родительский объект (который объявляет связь `has_many`) является несохраненным (то есть `new_record?` возвращает `true`), тогда дочерние объекты не сохраняются при добавлении. Все несохраненные члены связи сохранятся автоматически, когда сохранится родительский объект.
+
+Если вы хотите назначить объект связью `has_many` без сохранения объекта, используйте метод `collection.build`.
+
+### Подробная информация по связи `has_and_belongs_to_many` <a name="2.5.7"></a>
+Связь `has_and_belongs_to_many` создает отношение многие-ко-многим с другой моделью. В терминах базы данных это связывает два класса через промежуточную соединительную таблицу, которая включает внешние ключи, относящиеся к каждому классу.
+
+#### Методы, добавляемые `has_and_belongs_to_many`
+
+Когда объявляете связь `has_and_belongs_to_many`, объявляющий класс автоматически получает 17 методов, относящихся к связи:
+* `collection`
+* `collection<<(object, ...)`
+* `collection.delete(object, ...)`
+* `collection.destroy(object, ...)`
+* `collection=(objects)`
+* `collection_singular_ids`
+* `collection_singular_ids=(ids)`
+* `collection.clear`
+* `collection.empty?`
+* `collection.size`
+* `collection.find(...)`
+* `collection.where(...)`
+* `collection.exists?(...)`
+* `collection.build(attributes = {})`
+* `collection.create(attributes = {})`
+* `collection.create!(attributes = {})`
+* `collection.reload `
+Во всех этих методах collection заменяется символом, переданным как первый аргумент в has_and_belongs_to_many, а collection_singular заменяется версией в единственном числе этого символа.
+
+##### Дополнительные методы столбцов
+
+Если соединительная таблица для связи `has_and_belongs_to_many` имеет дополнительные столбцы, кроме двух внешних ключей, эти столбцы будут добавлены как атрибуты к записям, получаемым посредством связи. Записи, возвращаемые с дополнительными атрибутами, будут всегда только для чтения, поскольку Rails не может сохранить значения этих атрибутов.
+
+> Использование дополнительных атрибутов в соединительной таблице в связи `has_and_belongs_to_many` **устарело**. Если требуется этот тип сложного поведения таблицы, соединяющей две модели в отношениях многие-ко-многим, следует использовать связь `has_many :through` вместо `has_and_belongs_to_many`.
+
+##### `collection`
+
+Метод `collection` возвращает Relation всех связанных объектов. Если нет связанных объектов, он возвращает пустой Relation.
+```
+@assemblies = @part.assemblies
+```
+
+##### `collection<<(object, ...)`
+
+Метод `collection<<` добавляет один или более объектов в коллекцию, создавая записи в соединительной таблице.
+```
+@part.assemblies << @assembly1
+```
+> Этот метод - просто псевдоним к `collection.concat` и `collection.push`.
+
+##### `collection.delete(object, ...)`
+
+Метод `collection.delete` убирает один или более объектов из коллекции, удаляя записи в соединительной таблице. Это не уничтожает объекты.
+```
+@part.assemblies.delete(@assembly1)
+```
+
+##### `collection.destroy(object, ...)`
+
+Метод `collection.destroy` убирает один или более объектов из коллекции, удаляя записи в соединительной таблице. Это не уничтожает объекты.
+```
+@part.assemblies.destroy(@assembly1)
+```
+
+##### `collection=(objects)`
+
+Метод `collection=` делает коллекцию содержащей только представленные объекты, добавляя и удаляя по мере необходимости. Изменения будут персистентными в базе данных.
+
+##### `collection_singular_ids`
+
+Метод `collection_singular_ids` возвращает массив `id` объектов в коллекции.
+```
+@assembly_ids = @part.assembly_ids
+```
+
+##### `collection_singular_ids=(ids)`
+
+Метод `collection_singular_ids=` делает коллекцию содержащей только объекты, идентифицированные представленными значениями первичного ключа, добавляя и удаляя по мере необходимости. Изменения будут персистентными в базе данных.
+
+##### `collection.clear`
+
+Метод `collection.clear` убирает каждый объект из коллекции, удаляя строки из соединительной таблицы. Это не уничтожает связанные объекты.
+
+##### `collection.empty?`
+
+Метод `collection.empty?` возвращает `true`, если коллекция не содержит каких-либо связанных объектов.
+```
+<% if @part.assemblies.empty? %>
+  This part is not used in any assemblies
+<% end %>
+```
+
+##### `collection.size`
+
+Метод `collection.size` возвращает количество объектов в коллекции.
+```
+@assembly_count = @part.assemblies.size
+```
+
+##### `collection.find(...)`
+
+Метод `collection.find` ищет объекты в коллекции. Он использует тот же синтаксис и опции, что и `ActiveRecord::Base.find`. А также добавляет дополнительное условие, что объект должен быть в коллекции.
+```
+@assembly = @part.assemblies.find(1)
+```
+
+##### `collection.where(...)`
+
+Метод `collection.where` ищет объекты в коллекции, основываясь на переданных условиях, но объекты загружаются лениво, что означает, что база данных запрашивается только когда происходит доступ к объекту(-там).
+```
+@new_assemblies = @part.assemblies.where("created_at > ?", 2.days.ago)
+```
+
+##### `collection.exists?(...)`
+
+Метод `collection.exists?` проверяет, существует ли в коллекции объект, отвечающий представленным условиям. Он использует тот же синтаксис и опции, что и `ActiveRecord::Base.exists?`.
+
+##### `collection.build(attributes = {})`
+
+Метод `collection.build` возвращает один или более объектов связанного типа. Эти объекты будут экземплярами с переданными атрибутами, и будет создана связь через соединительную таблицу, но связанный объект пока не будет сохранен.
+```
+@assembly = @part.assemblies.build({assembly_name: "Transmission housing"})
+```
+
+##### `collection.create(attributes = {})`
+
+Метод `collection.create` возвращает один или более объектов связанного типа. Эти объекты будут экземплярами с переданными атрибутами, будет создана связь через соединительную таблицу, и, если он пройдет валидации, определенные в связанной модели, связанный объект будет сохранен.
+```
+@assembly = @part.assemblies.create({assembly_name: "Transmission housing"})
+```
+
+##### `collection.create!(attributes = {})`
+
+Работает так же, как вышеприведенный `collection.create`, но вызывает `ActiveRecord::RecordInvalid`, если запись невалидна.
+
+##### `collection.reload`
+
+Метод `collection.reload` возвращает Relation всех связанных объектов, принудительно читая базу данных. Если нет связанных объектов, он возвращает пустой Relation.
+```
+@assemblies = @part.assemblies.reload
+```
+
+#### Опции для `has_and_belongs_to_many`
+
+Хотя Rails использует разумные значения по умолчанию, работающие во многих ситуациях, бывают случаи, когда хочется изменить поведение связи `has_and_belongs_to_many`. Такая настройка легко выполнима с помощью передачи опции при создании связи. Например, эта связь использует две такие опции:
+```
+class Parts < ApplicationRecord
+  has_and_belongs_to_many :assemblies, -> { readonly },
+                                       autosave: true
+end
+```
+Связь `has_and_belongs_to_many` поддерживает эти опции:
+* `:association_foreign_key`
+* `:autosave`
+* `:class_name`
+* `:foreign_key`
+* `:join_table`
+* `:validate`
+
+##### `:association_foreign_key`
+
+По соглашению Rails предполагает, что столбец в соединительной таблице, используемый для хранения внешнего ключа, указываемого на другую модель, является именем этой модели с добавленным суффиксом `_id`. Опция `:association_foreign_key` позволяет установить имя внешнего ключа явно:
+
+> Опции `:foreign_key` и `:association_foreign_key` полезны при настройке присоединения к себе многие-ко-многим. Например:
+
+```
+class User < ApplicationRecord
+  has_and_belongs_to_many :friends,
+      class_name: "User",
+      foreign_key: "this_user_id", # типа твой айди
+      association_foreign_key: "other_user_id" # типа айди друга
+end
+```
+
+##### `:autosave`
+
+Если установить опцию `:autosave` в `true`, Rails сохранит любые загруженные связанные члены и уничтожит члены, помеченные для уничтожения, всякий раз, когда сохраняется родительский объект. Но установить `:autosave` в `false` - не то же самое, что не устанавливать опцию `:autosave`. Если опция `:autosave` отсутствует, то новые связанные объекты будут сохранены, но обновленные связанные объекты сохранены не будут.
+
+##### `:class_name`
+
+Если имя другой модели не может быть произведено из имени связи, можете использовать опцию `:class_name` для предоставления имени модели. Например, если часть имеет много сборок, но фактическое имя модели, содержащей сборки - это `Gadget`, можете установить это следующим образом:
+```
+class Parts < ApplicationRecord
+  has_and_belongs_to_many :assemblies, class_name: "Gadget"
+end
+```
+
+##### `:foreign_key`
+
+По соглашению Rails предполагает, что столбец в соединительной таблице, используемый для хранения внешнего ключа, указываемого на эту модель, имеет имя модели с добавленным суффиксом `_id`. Опция `:foreign_key` позволяет установить имя внешнего ключа явно:
+```
+class User < ApplicationRecord
+  has_and_belongs_to_many :friends,
+      class_name: "User",
+      foreign_key: "this_user_id",
+      association_foreign_key: "other_user_id"
+end
+```
+
+##### `:join_table`
+
+Если имя соединительной таблицы по умолчанию, основанное на алфавитном порядке, - это не то, что вам нужно, используйте опцию `:join_table`, чтобы переопределить его.
+
+##### `:validate`
+
+Если установите опцию `:validate` в `false`, тогда связанные объекты не будут проходить валидацию всякий раз, когда вы сохраняете этот объект. По умолчанию она равна `true:` связанные объекты проходят валидацию, когда этот объект сохраняется.
+
+#### Скоупы для `has_and_belongs_to_many`
+
+Иногда хочется настроить запрос, используемый `has_many`. Такая настройка может быть достигнута с помощью блока скоупа. Например:
+```
+class Parts < ApplicationRecord
+  has_and_belongs_to_many :assemblies, -> { where active: true }
+end
+```
+Внутри блока скоупа можно использовать любые стандартные методы запросов. Далее обсудим следующие из них:
+* `where`
+* `extending`
+* `group`
+* `includes`
+* `limit`
+* `offset`
+* `order`
+* `readonly`
+* `select`
+* `distinct`
+
+##### `where`
+
+Метод `where` позволяет определить условия, которым должен отвечать связанный объект.
+```
+class Parts < ApplicationRecord
+  has_and_belongs_to_many :assemblies,
+    -> { where "factory = 'Seattle'" }
+end
+```
+Также можно задать условия хэшем:
+```
+class Parts < ApplicationRecord
+  has_and_belongs_to_many :assemblies,
+    -> { where factory: 'Seattle' }
+end
+```
+При использовании опции `where` хэшем, при создание записи через эту связь будет автоматически применен скоуп с использованием хэша. В этом случае при использовании `@parts.assemblies.create` или `@parts.assemblies.build` будут созданы заказы, в которых столбец `factory` будет иметь значение `Seattle`.
+
+##### `extending`
+
+Метод `extending` определяет именованный модуль для расширения прокси связи. 
+
+##### `group`
+
+Метод `group` предоставляет имя атрибута, по которому группируется результирующий набор, используя выражение GROUP BY в поисковом запросе SQL.
+```
+class Parts < ApplicationRecord
+  has_and_belongs_to_many :assemblies, -> { group "factory" }
+end
+```
+
+##### `includes`
+
+Можете использовать метод `includes` для определения связей второго порядка, которые должны быть нетерпеливо загружены, когда эта связь используется.
+
+##### `limit`
+
+Метод `limit` позволяет ограничить общее количество объектов, которые будут выбраны через связь.
+```
+class Customer < ApplicationRecord
+  has_and_belongs_to_many :assemblies,
+    -> { order("created_at DESC").limit(50) }
+end
+```
+
+##### `offset`
+
+Метод `offset` позволяет определить начальное смещение для выбора объектов через связь. Например, `-> { offset(11) }` пропустит первые 11 записей.
+
+##### `order`
+
+Метод `order` предписывает порядок, в котором связанные объекты будут получены (в синтаксисе SQL, используемом в условии ORDER BY).
+```
+class Customer < ApplicationRecord
+  has_and_belongs_to_many :assemblies,
+    -> { order "assembly_name ASC" }
+end
+```
+
+##### `readonly`
+
+При использовании метода `:readonly`, связанные объекты будут доступны только для чтения, когда получены посредством связи
+
+##### `select`
+
+Метод `select` позволяет переопределить SQL условие SELECT, которое используется для получения данных о связанном объекте. По умолчанию Rails получает все столбцы.
+
+##### `distinct`
+
+Используйте метод `distinct`, чтобы убирать дубликаты из коллекции.
+
+#### Когда сохраняются объекты?
+
+Когда вы назначаете объект связью `has_and_belongs_to_many`, этот объект автоматически сохраняется (в порядке обновления соединительной таблицы). Если назначаете несколько объектов в одном выражении, они все будут сохранены.
+
+Если одно из этих сохранений проваливается из-за ошибок валидации, тогда выражение назначения возвращает `false`, a само назначение отменяется.
+
+Если родительский объект (который объявляет связь has_and_belongs_to_many) является несохраненным (то есть `new_record?` возвращает `true`), тогда дочерние объекты не сохраняются при добавлении. Все несохраненные члены связи сохранятся автоматически, когда сохранится родительский объект.
+
+Если вы хотите назначить объект связью `has_and_belongs_to_many` без сохранения объекта, используйте метод `collection.build`.
+
+### Подробная информация по колбэкам и расширениям связи <a name="2.5.8"></a>
+Обычно колбэки прицепляются к жизненному циклу объектов Active Record, позволяя вам работать с этими объектами в различных точках. Например, можете использовать колбэк `:before_save`, чтобы вызвать что-то перед тем, как объект будет сохранен.
+
+Колбэки связи похожи на обычные колбэки, но они включаются событиями в жизненном цикле коллекции. Доступны четыре колбэка связи:
+* `before_add`
+* `after_add`
+* `before_remove`
+* `after_remove`
+
+Колбэки связи объявляются с помощью добавления опций в объявление связи. Например:
+```
+class Author < ApplicationRecord
+  has_many :books, before_add: :check_credit_limit
+
+  def check_credit_limit(book)
+    ...
+  end
+end
+```
+Rails передает добавляемый или удаляемый объект в колбэк.
+
+Можете помещать колбэки в очередь на отдельное событие, передав их как массив:
+```
+class Author < ApplicationRecord
+  has_many :books,
+    before_add: [:check_credit_limit, :calculate_shipping_charges]
+
+  def check_credit_limit(book)
+    ...
+  end
+
+  def calculate_shipping_charges(book)
+    ...
+  end
+end
+```
+Если колбэк `before_add` вызывает исключение, объект не будет добавлен в коллекцию. Подобным образом, если колбэк `before_remove` вызывает исключение, объект не убирается из коллекции.
+
+Эти колбэки вызываются только когда связанные объекты добавляются или убираются через коллекцию связи:
+```
+# Вызывает колбэк `before_add`
+author.books << book
+author.books = [book, book2]
+
+# Не вызывает колбэк `before_add`
+book.update(author_id: 1)
+```
+
+#### Расширения связи
+Вы не ограничены функциональностью, которую Rails автоматически встраивает в выданные по связи объекты. Можно расширить эти объекты с помощью анонимных модулей, добавив новые методы поиска, методы создания и иные методы. Например:
+```
+class Author < ApplicationRecord
+  has_many :books do
+    def find_by_book_prefix(book_number)
+      find_by(category_id: book_number[0..2])
+    end
+  end
+end
+```
+Если имеется расширение, которое должно быть общим для нескольких связей, можно использовать именованный модуль расширения. Например:
+```
+module FindRecentExtension
+  def find_recent
+    where("created_at > ?", 5.days.ago)
+  end
+end
+
+class Author < ApplicationRecord
+  has_many :books, -> { extending FindRecentExtension }
+end
+
+class Supplier < ApplicationRecord
+  has_many :deliveries, -> { extending FindRecentExtension }
+end
+```
+Расширения могут ссылаться на внутренние методы выданных по связи объектов, используя следующие три атрибута акцессора `proxy_association`:
+* `proxy_association.owner` возвращает объект, в котором объявлена связь.
+* `proxy_association.reflection` возвращает объект reflection, описывающий связь.
+* `proxy_association.target` возвращает связанный объект для `belongs_to` или `has_one`, или коллекцию связанных объектов для `has_many` или `has_and_belongs_to_many`.
+
+### Наследование с единой таблицей (STI) <a name="2.5.9"></a>
+Иногда можно делиться полями и поведением между различными моделями. Скажем, у нас есть модели `Car`, `Motorcycle` и `Bicycle`. Мы хотим совместно использовать поля `color` и `price` и некоторые методы всеми из них, но иметь некоторое специфичное поведение для каждого, а также различные контроллеры.
+
+Rails позволяет сделать это достаточно просто. Сначала нужно сгенерировать базовую модель `Vehicle`:
+```
+$ rails generate model vehicle type:string color:string price:decimal{10.2}
+```
+Вы заметили, что мы добавили поле "type"? Так как все модели будут сохранены в одну таблицу базы данных, Rails сохранит в этот столбец имя модели, которая сохраняется. В нашем примере это может быть "Car", "Motorcycle" или "Bicycle." STI не работает без поля "type" в таблице.
+
+Затем мы сгенерируем три модели, унаследованные от `Vehicle`. Для этого можно использовать опцию `--parent=PARENT`, которая сгенерирует модель, унаследованную от указанного родителя и без эквивалентной миграции (так как таблица уже существует).
+
+Например, чтобы сгенерировать модель `Car`:
+```
+$ rails generate model car --parent=Vehicle
+```
+Сгенерированная модель будет выглядеть так:
+```
+class Car < Vehicle
+end
+```
+Это означает, что все поведение, такое как связи, публичные методы и так далее, добавленное в `Vehicle`, доступно также для `Car`.
+
+Создание автомобиля сохранит его в таблице `vehicles` со значением "Car" в поле `type`:
+```
+Car.create(color: 'Red', price: 10000)
+```
+сгенерирует следующий SQL:
+```
+INSERT INTO "vehicles" ("type", "color", "price") VALUES ('Car', 'Red', 10000)
+```
+Запрос записей автомобилей будет просто искать среди транспортных средств, которые являются автомобилями:
+```
+Car.all
+```
+запустит подобный запрос:
+```
+SELECT "vehicles".* FROM "vehicles" WHERE "vehicles"."type" IN ('Car')
+```
+
 
 
 # Вьюхи <a name="3"></a>
