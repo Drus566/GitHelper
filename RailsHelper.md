@@ -4919,6 +4919,721 @@ SELECT categories.* FROM categories
 ```
 Category.joins(:articles).distinct.
 ```
+###### Соединение нескольких связей
+```
+Article.joins(:category, :comments)
+```
+Это создаст:
+```
+SELECT articles.* FROM articles
+  INNER JOIN categories ON categories.id = articles.category_id
+  INNER JOIN comments ON comments.article_id = articles.id
+```
+Или, по-русски, "возвратить все статьи, у которых есть категория и как минимум один комментарий". Отметьте, что статьи с несколькими комментариями будут показаны несколько раз.
+
+###### Соединение вложенных связей (одного уровня)
+```
+Article.joins(comments: :guest)
+```
+Это создаст:
+```
+SELECT articles.* FROM articles
+  INNER JOIN comments ON comments.article_id = articles.id
+  INNER JOIN guests ON guests.comment_id = comments.id
+```
+Или, по-русски, "возвратить все статьи, в которых есть комментарий, оставленный гостем".
+
+##### Определение условий в соединительных таблицах
+
+В соединительных таблицах можно определить условия, используя обычные массивные и строковые условия. Условия с использованием хэша предоставляют специальный синтаксис для определения условий в соединительных таблицах:
+```
+time_range = (Time.now.midnight - 1.day)..Time.now.midnight
+Client.joins(:orders).where('orders.created_at' => time_range)
+```
+Альтернативный и более чистый синтаксис для этого - вложенные хэш-условия:
+```
+time_range = (Time.now.midnight - 1.day)..Time.now.midnight
+Client.joins(:orders).where(orders: { created_at: time_range })
+```
+Будут найдены все клиенты, имеющие созданные вчера заказы, снова используя выражение SQL `BETWEEN`.
+
+#### `left_outer_joins`
+
+Если хотите выбрать ряд записей, независимо от того, имеют ли они связанные записи, можно использовать метод `left_outer_joins`.
+```
+Author.left_outer_joins(:posts).distinct.select('authors.*, COUNT(posts.*) AS posts_count').group('authors.id')
+```
+Который создаст:
+```
+SELECT DISTINCT authors.*, COUNT(posts.*) AS posts_count FROM "authors"
+LEFT OUTER JOIN posts ON posts.author_id = authors.id GROUP BY authors.id
+```
+### Нетерпеливая загрузка связей <a name="2.6.13"></a>
+
+Нетерпеливая загрузка - это механизм загрузки связанных записей объекта, возвращаемых `Model.find`, с использованием как можно меньшего количества запросов.
+
+Проблема N + 1 запроса
+
+Рассмотрим следующий код, который находит 10 клиентов и выводит их почтовые индексы:
+```
+clients = Client.limit(10)
+
+clients.each do |client|
+  puts client.address.postcode
+end
+```
+На первый взгляд выглядит хорошо. Но проблема лежит в общем количестве выполненных запросов. Вышеупомянутый код выполняет 1 (чтобы найти 10 клиентов) + 10 (каждый на одного клиента для загрузки адреса) = итого 11 запросов.
+Что означает: "возвратить всех авторов и количество их публикаций, независимо от того, имеются ли у них вообще публикации".
+
+**Решение проблемы N + 1 запроса**
+
+Active Record позволяет заранее указать все связи, которые должны быть загружены. Это возможно с помощью указания метода `includes` на вызове `Model.find`. Посредством `includes`, Active Record обеспечивает то, что все указанные связи загружаются с использованием минимально возможного количества запросов.
+
+Пересмотрев вышеупомянутую задачу, можно переписать `Client.limit(10)`, чтобы нетерпеливо загрузить адреса:
+```
+clients = Client.includes(:address).limit(10)
+
+clients.each do |client|
+  puts client.address.postcode
+end
+```
+Этот код выполнит всего 2 запроса, вместо 11 запросов из прошлого примера:
+```
+SELECT * FROM clients LIMIT 10
+SELECT addresses.* FROM addresses
+  WHERE (addresses.client_id IN (1,2,3,4,5,6,7,8,9,10))
+```
+
+#### Нетерпеливая загрузка нескольких связей
+Массив нескольких связей
+```
+Article.includes(:category, :comments)
+```
+Это загрузит все статьи и связанные категорию, и комментарии для каждой статьи.
+
+#### Вложенный хэш связей
+```
+Category.includes(articles: [{ comments: :guest }, :tags]).find(1)
+```
+Вышеприведенный код находит категории с `id 1` и нетерпеливо загружает все связанные статьи, теги и комментарии каждой статьи, а также гостей, связанных с комментариями.
+
+#### Определение условий для нетерпеливой загрузки связей
+
+Хотя Active Record и позволяет определить условия для нетерпеливой загрузки связей точно так же, как и в `joins`, рекомендуем использовать вместо этого `joins`.
+
+Однако, если сделать так, то можно использовать `where` как обычно.
+```
+Article.includes(:comments).where(comments: { visible: true })
+```
+Это сгенерирует запрос с ограничением `LEFT OUTER JOIN`, в то время как метод `joins` сгенерировал бы его с использованием функции `INNER JOIN`.
+```
+  SELECT "articles"."id" AS t0_r0, ... "comments"."updated_at" AS t1_r5 FROM "articles"
+    LEFT OUTER JOIN "comments" ON "comments"."article_id" = "articles"."id" WHERE (comments.visible = 1)
+```
+Если бы не было условия `where`, то сгенерировался бы обычный набор из двух запросов.
+
+> Использование where подобным образом будет работать только, если передавать в него хэш. Для фрагментов SQL необходимо использовать `references` для принуждения соединения таблиц:
+```
+Article.includes(:comments).where("comments.visible = true").references(:comments)
+```
+Если, в случае с этим запросом `includes`, не будет ни одного комментария ни для одной статьи, все статьи все равно будут загружены. При использовании `joins` (`INNER JOIN`), соединительные условия должны соответствовать, иначе ни одной записи не будет возвращено.
+
+> Если связь нетерпеливо загружена как часть `join`, любые поля из произвольного выражения `select` не будут присутствовать в загруженных моделях. Это так, потому что это избыточность, которая должна появиться или в родительской модели, или в дочерней.
+
+### Скоупы <a name="2.6.14"></a>
+Скоупы позволяют задавать часто используемые запросы, к которым можно обращаться как к вызовам метода в связанных объектах или моделях. С помощью этих скоупов можно использовать каждый ранее раскрытый метод, такой как `where`, `joins` и `includes`. Все методы скоупов возвращают объект `ActiveRecord::Relation`, который позволяет вызывать на нем дополнительные методы (такие как другие скоупы).
+
+Для определения простого скоупа мы используем метод scope внутри класса, передав запрос, который хотим запустить при вызове этого скоупа:
+```
+class Article < ApplicationRecord
+  scope :published, -> { where(published: true) }
+end
+```
+Это в точности то же самое, что определение метода класса, и то, что именно вы используете, является вопросом профессионального предпочтения:
+```
+class Article < ApplicationRecord
+  def self.published
+    where(published: true)
+  end
+end
+```
+Скоупы также сцепляются с другими скоупами:
+```
+class Article < ApplicationRecord
+  scope :published,               -> { where(published: true) }
+  scope :published_and_commented, -> { published.where("comments_count > 0") }
+end
+```
+Для вызова скоупа `published`, можно вызвать его либо на классе:
+```
+Article.published # => [опубликованные статьи]
+```
+Либо на связи, состоящей из объектов `Article`:
+```
+category = Category.first
+category.articles.published # => [опубликованные статьи, принадлежащие этой категории]
+```
+
+#### Передача аргумента
+
+Скоуп может принимать аргументы:
+```
+class Article < ApplicationRecord
+  scope :created_before, ->(time) { where("created_at < ?", time) }
+end
+```
+Вызывайте скоуп, как будто это метод класса:
+```
+Article.created_before(Time.zone.now)
+```
+Однако, это всего лишь дублирование функциональности, которая должна быть предоставлена методом класса.
+```
+class Article < ApplicationRecord
+  def self.created_before(time)
+    where("created_at < ?", time)
+  end
+end
+```
+Использование метода класса - более предпочтительный способ принятию аргументов скоупом. Эти методы также будут доступны на связанных объектах:
+```
+category.articles.created_before(time)
+```
+
+#### Использование условий
+
+Ваши скоупы могут использовать условия:
+```
+class Article < ApplicationRecord
+  scope :created_before, ->(time) { where("created_at < ?", time) if time.present? }
+end
+```
+Подобно остальным примерам, это ведет себя подобно методу класса.
+```
+class Article < ApplicationRecord
+  def self.created_before(time)
+    where("created_at < ?", time) if time.present?
+  end
+end
+```
+Однако, имеется одно важное предостережение: скоуп всегда должен возвращать объект `ActiveRecord::Relation`, даже если условие вычисляется `false`, в отличие от метода класса, возвращающего `nil`. Это может вызвать `NoMethodError` при сцеплении методов класса с условиями, если одно из условий вернет `false`.
+
+#### Применение скоупа по умолчанию
+
+Если хотите, чтобы скоуп был применен ко всем запросам модели, можно использовать метод `default_scope` в самой модели.
+```
+class Client < ApplicationRecord
+  default_scope { where("removed_at IS NULL") }
+end
+```
+Когда запросы для этой модели будут выполняться, запрос SQL теперь будет выглядеть примерно так:
+```
+SELECT * FROM clients WHERE removed_at IS NULL
+```
+Если необходимо сделать более сложные вещи со скоупом по умолчанию, альтернативно его можно определить как метод класса:
+```
+class Client < ApplicationRecord
+  def self.default_scope
+    # Должен возвращать ActiveRecord::Relation.
+  end
+end
+```
+`default_scope` также применяется при создании записи, когда аргументы скоупа передаются как Hash. Он не применяется при обновлении записи. То есть:
+```
+class Client < ApplicationRecord
+  default_scope { where(active: true) }
+end
+
+Client.new          # => #<Client id: nil, active: true>
+Client.unscoped.new # => #<Client id: nil, active: nil>
+```
+Имейте в виду, что когда передаются в формате Array, аргументы запроса `default_scope` не могут быть преобразованы в Hash для назначения атрибутов по умолчанию. То есть:
+```
+class Client < ApplicationRecord
+  default_scope { where("active = ?", true) }
+end
+
+Client.new # => #<Client id: nil, active: nil>
+```
+
+#### Объединение скоупов
+
+Подобно условиям where, скоупы объединяются с использованием `AND`.
+```
+class User < ApplicationRecord
+  scope :active, -> { where state: 'active' }
+  scope :inactive, -> { where state: 'inactive' }
+end
+
+User.active.inactive
+# SELECT "users".* FROM "users" WHERE "users"."state" = 'active' AND "users"."state" = 'inactive'
+```
+Можно комбинировать условия `scope` и `where`, и результирующий sql будет содержать все условия, соединенные с помощью `AND`.
+```
+User.active.where(state: 'finished')
+# SELECT "users".* FROM "users" WHERE "users"."state" = 'active' AND "users"."state" = 'finished'
+```
+Если необходимо, чтобы сработало только **последнее условие where**, тогда можно использовать `Relation#merge`.
+```
+User.active.merge(User.inactive)
+# SELECT "users".* FROM "users" WHERE "users"."state" = 'inactive'
+```
+Важным предостережением является то, что `default_scope` **переопределяется условиями `scope` и `where`**.
+```
+class User < ApplicationRecord
+  default_scope { where state: 'pending' }
+  scope :active, -> { where state: 'active' }
+  scope :inactive, -> { where state: 'inactive' }
+end
+
+User.all
+# SELECT "users".* FROM "users" WHERE "users"."state" = 'pending'
+
+User.active
+# SELECT "users".* FROM "users" WHERE "users"."state" = 'active'
+
+User.where(state: 'inactive')
+# SELECT "users".* FROM "users" WHERE "users"."state" = 'inactive'
+```
+Как видите, `default_scope` объединяется как со `scope`, так и с `where` условиями.
+
+#### Удаление всех скоупов
+
+Если хотите удалить скоупы по какой-то причине, можете использовать метод `unscoped`. Это особенно полезно, если в модели определен `default_scope`, и он не должен быть применен для конкретно этого запроса.
+```
+Client.unscoped.load
+```
+Этот метод удаляет все скоупы и выполняет обычный запрос к таблице.
+```
+Client.unscoped.all
+# SELECT "clients".* FROM "clients"
+
+Client.where(published: false).unscoped.all
+# SELECT "clients".* FROM "clients"
+```
+`unscoped` также может принимать блок.
+```
+Client.unscoped {
+  Client.created_before(Time.zone.now)
+}
+```
+### Динамический поиск <a name="2.6.15"></a>
+
+Для каждого поля (также называемого атрибутом), определенного в вашей таблице, Active Record предоставляет метод поиска. Например, если есть поле `first_name` в вашей модели `Client`, вы автоматически получаете `find_by_first_name` от Active Record. Если также есть поле `locked` в модели `Client`, вы также получаете `find_by_locked` метод.
+
+Можете определить восклицательный знак (`!`) в конце динамического поиска, чтобы он вызвал ошибку `ActiveRecord::RecordNotFound`, если не возвратит ни одной записи, например так `Client.find_by_name!("Ryan")`
+
+Если хотите искать и по `first_name`, и по `locked`, можете сцепить эти поиски вместе, просто написав "`and`" между полями, например, `Client.find_by_first_name_and_locked("Ryan", true)`.
+
+### `Enum` <a name="2.6.16"></a>
+
+Макрос `enum` связывает числовой столбец с набором возможных значений.
+```
+class Book < ApplicationRecord
+  enum availability: [:available, :unavailable]
+end
+```
+Это автоматически создаст соответствующие скоупы для запроса модели. Также добавляются методы для перехода между состояниями и запроса текущего состояния.
+```
+# Оба примера ниже запрашивают только доступные книги.
+Book.available
+# или
+Book.where(availability: :available)
+
+book = Book.new(availability: :available)
+book.available?   # => true
+book.unavailable! # => true
+book.available?   # => false
+```
+Полную документацию об `enum` можно прочитать в <a href="https://api.rubyonrails.org/classes/ActiveRecord/Enum.html">документации Rails API</a>.
+
+### Цепочки методов <a name="2.6.17"></a>
+
+В Active Record есть полезный приём программирования Method Chaining, который позволяет нам комбинировать множество Active Record методов.
+
+Можно сцепить несколько методов в единое выражение, если предыдущий вызываемый метод возвращает `ActiveRecord::Relation`, такие как `all`, `where` и `joins`. Методы, которые возвращают одиночный объект (смотрите раздел Получение одиночного объекта) должны вызываться в конце.
+
+Ниже представлены несколько примеров. Это руководство не покрывает все возможности, а только некоторые, для ознакомления. Когда вызывается Active Record метод, запрос не сразу генерируется и отправляется в базу, это происходит только тогда, когда данные реально необходимы. Таким образом, каждый пример ниже генерирует только один запрос.
+
+#### Получение отфильтрованных данных из нескольких таблиц
+```
+Person
+  .select('people.id, people.name, comments.text')
+  .joins(:comments)
+  .where('comments.created_at > ?', 1.week.ago)
+```
+Результат должен быть примерно следующим:
+```
+SELECT people.id, people.name, comments.text
+FROM people
+INNER JOIN comments
+  ON comments.person_id = people.id
+WHERE comments.created_at > '2015-01-01'
+```
+
+#### Получение определённых данных из нескольких таблиц
+```
+Person
+  .select('people.id, people.name, companies.name')
+  .joins(:company)
+  .find_by('people.name' => 'John') # это должно быть в конце
+```
+Выражение выше, сгенерирует следующий SQL-запрос:
+```
+SELECT people.id, people.name, companies.name
+FROM people
+INNER JOIN companies
+  ON companies.person_id = people.id
+WHERE people.name = 'John'
+LIMIT 1
+```
+> Обратите внимание, что если запросу соответствует несколько записей, `find_by` вернет только первую запись и проигнорирует остальные (смотрите `LIMIT 1` выше).
+
+### Поиск или создание нового объекта <a name="2.6.18"></a>
+
+Часто бывает, что вам нужно найти запись или создать ее, если она не существует. Вы можете сделать это с помощью методов `find_or_create_by` и `find_or_create_by!`.
+
+#### `find_or_create_by`
+
+Метод `find_or_create_by` проверяет, существует ли запись с определенными атрибутами. Если нет, то вызывается `create`. Давайте рассмотрим пример.
+
+Предположим, вы хотите найти клиента по имени 'Andy', и, если такого нет, создать его. Это можно сделать, выполнив:
+```
+Client.find_or_create_by(first_name: 'Andy')
+# => #<Client id: 1, first_name: "Andy", orders_count: 0, locked: true, created_at: "2011-08-30 06:09:27", updated_at: "2011-08-30 06:09:27">
+```
+SQL, генерируемый этим методом, будет выглядеть так:
+```
+SELECT * FROM clients WHERE (clients.first_name = 'Andy') LIMIT 1
+BEGIN
+INSERT INTO clients (created_at, first_name, locked, orders_count, updated_at) VALUES ('2011-08-30 05:22:57', 'Andy', 1, NULL, '2011-08-30 05:22:57')
+COMMIT
+```
+`find_or_create_by` возвращает либо уже существующую запись, либо новую запись. В нашем случае, у нас еще нет клиента с именем Andy, поэтому запись будет создана и возвращена.
+
+Новая запись может быть не сохранена в базу данных; это зависит от того, прошли валидации или нет (подобно `create`).
+
+Предположим, мы хотим установить атрибут `'locked'` как `false`, если создаем новую запись, но не хотим включать его в запрос. Таким образом, мы хотим найти клиента по имени "Andy" или, если этот клиент не существует, создать клиента по имени "Andy", который не заблокирован.
+
+Этого можно достичь двумя способами. Первый - это использование `create_with`:
+```
+Client.create_with(locked: false).find_or_create_by(first_name: 'Andy')
+```
+Второй способ - это использование блока:
+```
+Client.find_or_create_by(first_name: 'Andy') do |c|
+  c.locked = false
+end
+```
+Блок будет выполнен, только если клиент был создан. Во второй раз, при запуске этого кода, блок будет проигнорирован.
+
+#### `find_or_create_by!`
+
+Можно также использовать `find_or_create_by!`, чтобы вызвать исключение, если новая запись невалидна. Валидации не раскрываются в этом руководстве, но давайте на момент предположим, что вы временно добавили
+```
+validates :orders_count, presence: true
+```
+в модель `Client`. Если попытаетесь создать нового `Client` без передачи `orders_count`, запись будет невалидной и будет вызвано исключение:
+```
+Client.find_or_create_by!(first_name: 'Andy')
+# => ActiveRecord::RecordInvalid: Validation failed: Orders count can't be blank
+```
+#### `find_or_initialize_by`
+
+Метод `find_or_initialize_by` работает похоже на `find_or_create_by`, но он вызывает не `create`, а `new`. Это означает, что новый экземпляр модели будет создан в памяти, но не будет сохранен в базу данных. Продолжая пример с `find_or_create_by`, теперь нам нужен клиент по имени 'Nick':
+```
+nick = Client.find_or_initialize_by(first_name: 'Nick')
+# => #<Client id: nil, first_name: "Nick", orders_count: 0, locked: true, created_at: "2011-08-30 06:09:27", updated_at: "2011-08-30 06:09:27">
+
+nick.persisted?
+# => false
+
+nick.new_record?
+# => true
+```
+Поскольку объект еще не сохранен в базу данных, сгенерированный SQL выглядит так:
+```
+SELECT * FROM clients WHERE (clients.first_name = 'Nick') LIMIT 1
+```
+Когда захотите сохранить его в базу данных, просто вызовите `save`:
+```
+nick.save
+# => true
+```
+### Поиск с помощью SQL <a name="2.6.19"></a>
+
+Если вы предпочитаете использовать собственные запросы SQL для поиска записей в таблице, можете использовать `find_by_sql`. Метод `find_by_sql` возвратит массив объектов, даже если лежащий в основе запрос вернет всего лишь одну запись. Например, можете запустить такой запрос:
+```
+Client.find_by_sql("SELECT * FROM clients
+  INNER JOIN orders ON clients.id = orders.client_id
+  ORDER BY clients.created_at desc")
+# =>  [
+#   #<Client id: 1, first_name: "Lucas" >,
+#   #<Client id: 2, first_name: "Jan" >,
+#   ...
+# ]
+```
+`find_by_sql` предоставляет простой способ создания произвольных запросов к базе данных и получения экземпляров объектов.
+
+#### `select_all`
+
+У `find_by_sql` есть близкий родственник, называемый `connection#select_all`. `select_all` получит объекты из базы данных, используя произвольный SQL, как и в `find_by_sql`, но не создаст их экземпляры. Этот метод вернет экземпляр класса `ActiveRecord::Result` и вызвав `to_hash` на этом объекте вернет массив хэшей, где каждый хэш указывает на запись.
+```
+Client.connection.select_all("SELECT first_name, created_at FROM clients WHERE id = '1'").to_hash
+# => [
+#   {"first_name"=>"Rafael", "created_at"=>"2012-11-10 23:23:45.281189"},
+#   {"first_name"=>"Eileen", "created_at"=>"2013-12-09 11:22:35.221282"}
+# ]
+```
+
+#### `pluck`
+
+`pluck` может быть использован для запроса с одним или несколькими столбцами из таблицы, лежащей в основе модели. Он принимает список имен столбцов как аргумент и возвращает массив значений определенных столбцов соответствующего типа данных.
+```
+Client.where(active: true).pluck(:id)
+# SELECT id FROM clients WHERE active = 1
+# => [1, 2, 3]
+
+Client.distinct.pluck(:role)
+# SELECT DISTINCT role FROM clients
+# => ['admin', 'member', 'guest']
+
+Client.pluck(:id, :name)
+# SELECT clients.id, clients.name FROM clients
+# => [[1, 'David'], [2, 'Jeremy'], [3, 'Jose']]
+```
+`pluck` позволяет заменить такой код:
+```
+Client.select(:id).map { |c| c.id }
+# или
+Client.select(:id).map(&:id)
+# или
+Client.select(:id, :name).map { |c| [c.id, c.name] }
+```
+на:
+```
+Client.pluck(:id)
+# или
+Client.pluck(:id, :name)
+```
+В отличие от `select`, `pluck` непосредственно конвертирует результат запроса в массив Ruby, без создания объектов ActiveRecord. Это может означать лучшую производительность для больших или часто используемых запросов. Однако, любые **переопределения методов в модели будут недоступны**. Например:
+```
+class Client < ApplicationRecord
+  def name
+    "I am #{super}"
+  end
+end
+
+Client.select(:name).map &:name
+# => ["I am David", "I am Jeremy", "I am Jose"]
+
+Client.pluck(:name)
+# => ["David", "Jeremy", "Jose"]
+```
+Более того, в отличие от `select` и других скоупов Relation, `pluck` вызывает немедленный запрос, и поэтому **не может быть соединен с любыми последующими скоупами, хотя он может работать со скоупами, подключенными ранее**:
+```
+Client.pluck(:name).limit(1)
+# => NoMethodError: undefined method `limit' for #<Array:0x007ff34d3ad6d8>
+
+Client.limit(1).pluck(:name)
+# => ["David"]
+```
+
+#### `ids`
+
+`ids` может быть использован для сбора всех ID для relation, используя первичный ключ таблицы.
+```
+Person.ids
+# SELECT id FROM people
+```
+```
+class Person < ApplicationRecord
+  self.primary_key = "person_id"
+end
+
+Person.ids
+# SELECT person_id FROM people
+```
+
+### Существование объектов <a name="2.6.20"></a>
+
+Если вы просто хотите проверить существование объекта, есть метод, называемый `exists?`. Этот метод запрашивает базу данных, используя тот же запрос, что и `find`, но вместо возврата объекта или коллекции объектов, он возвращает или `true`, или `false`.
+```
+Client.exists?(1)
+```
+
+Метод `exists?` также принимает несколько значений, при этом возвращает `true`, если хотя бы одна из этих записей существует.
+```
+Client.exists?(id: [1,2,3])
+# или
+Client.exists?(name: ['John', 'Sergei'])
+```
+Даже возможно использовать `exists?` без аргументов на модели или `relation`:
+```
+Client.where(first_name: 'Ryan').exists?
+```
+Пример выше вернет `true`, если есть хотя бы один клиент с `first_name 'Ryan'`, и `false` в противном случае.
+```
+Client.exists?
+```
+Это возвратит `false`, если таблица `clients` пустая, и `true` в противном случае.
+
+Для проверки на существование также можно использовать `any?` и `many?` на модели или relation.
+```
+# на модели
+Article.any?
+Article.many?
+
+# на именованном скоупе
+Article.recent.any?
+Article.recent.many?
+
+# на relation
+Article.where(published: true).any?
+Article.where(published: true).many?
+
+# на связи
+Article.first.categories.any?
+Article.first.categories.many?
+```
+
+### Вычисления <a name="2.6.21"></a>
+
+Этот раздел использует count для примера в этой преамбуле, но описанные опции применяются ко всем подразделам.
+
+Все методы вычисления работают прямо на модели:
+```
+Client.count
+# SELECT COUNT(*) FROM clients
+```
+Или на relation:
+```
+Client.where(first_name: 'Ryan').count
+# SELECT COUNT(*) FROM clients WHERE (first_name = 'Ryan')
+```
+Можно также использовать различные методы поиска на relation для выполнения сложных вычислений:
+```
+Client.includes("orders").where(first_name: 'Ryan', orders: { status: 'received' }).count
+```
+Что выполнит:
+```
+SELECT COUNT(DISTINCT clients.id) FROM clients
+  LEFT OUTER JOIN orders ON orders.client_id = clients.id
+  WHERE (clients.first_name = 'Ryan' AND orders.status = 'received')
+```
+
+#### Количество
+
+Если хотите увидеть, сколько записей есть в таблице модели, можете вызвать `Client.count`, и он возвратит число. Если хотите быть более определенным и найти всех клиентов с присутствующим в базе данных возрастом, используйте `Client.count(:age)`.
+
+#### Среднее
+
+Если хотите увидеть среднее значение определенного показателя в одной из ваших таблиц, можно вызвать метод `average` для класса, относящегося к таблице. Вызов этого метода выглядит так:
+```
+Client.average("orders_count")
+```
+Это возвратит число (возможно, с плавающей запятой, такое как 3.14159265), представляющее среднее значение поля.
+
+#### Минимум
+
+Если хотите найти минимальное значение поля в таблице, можете вызвать метод minimum для класса, относящегося к таблице. Вызов этого метода выглядит так:
+```
+Client.minimum("age")
+```
+
+#### Максимум
+
+Если хотите найти максимальное значение поля в таблице, можете вызвать метод maximum для класса, относящегося к таблице. Вызов этого метода выглядит так:
+```
+Client.maximum("age")
+```
+
+#### Сумма
+
+Если хотите найти сумму полей для всех записей в таблице, можете вызвать метод sum для класса, относящегося к таблице. Вызов этого метода выглядит так:
+```
+Client.sum("orders_count")
+```
+
+### Запуск EXPLAIN <a name="2.6.22"></a>
+
+Можно запустить `EXPLAIN` на запросах, вызываемых в relations. Например,
+```
+User.where(id: 1).joins(:articles).explain
+```
+
+может выдать
+```
+EXPLAIN for: SELECT `users`.* FROM `users` INNER JOIN `articles` ON `articles`.`user_id` = `users`.`id` WHERE `users`.`id` = 1
++----+-------------+----------+-------+---------------+
+| id | select_type | table    | type  | possible_keys |
++----+-------------+----------+-------+---------------+
+|  1 | SIMPLE      | users    | const | PRIMARY       |
+|  1 | SIMPLE      | articles | ALL   | NULL          |
++----+-------------+----------+-------+---------------+
++---------+---------+-------+------+-------------+
+| key     | key_len | ref   | rows | Extra       |
++---------+---------+-------+------+-------------+
+| PRIMARY | 4       | const |    1 |             |
+| NULL    | NULL    | NULL  |    1 | Using where |
++---------+---------+-------+------+-------------+
+
+2 rows in set (0.00 sec)
+```
+для MySQL и MariaDB.
+
+Active Record применяет красивое форматирование, эмулирующее работу соответствующей оболочки базы данных. Таким образом, запуск того же запроса с адаптером PostgreSQL выдаст вместо этого
+```
+EXPLAIN for: SELECT "users".* FROM "users" INNER JOIN "articles" ON "articles"."user_id" = "users"."id" WHERE "users"."id" = 1
+                                  QUERY PLAN
+------------------------------------------------------------------------------
+ Nested Loop Left Join  (cost=0.00..37.24 rows=8 width=0)
+   Join Filter: (articles.user_id = users.id)
+   ->  Index Scan using users_pkey on users  (cost=0.00..8.27 rows=1 width=4)
+         Index Cond: (id = 1)
+   ->  Seq Scan on articles  (cost=0.00..28.88 rows=8 width=4)
+         Filter: (articles.user_id = 1)
+(6 rows)
+```
+Нетерпеливая загрузка может вызвать более одного запроса за раз, и некоторым запросам могут потребоваться результаты предыдущих. Поэтому `explain` фактически выполняет запрос, а затем запрашивает планы запросов. Например,
+```
+User.where(id: 1).includes(:articles).explain
+```
+выдаст
+```
+EXPLAIN for: SELECT `users`.* FROM `users`  WHERE `users`.`id` = 1
++----+-------------+-------+-------+---------------+
+| id | select_type | table | type  | possible_keys |
++----+-------------+-------+-------+---------------+
+|  1 | SIMPLE      | users | const | PRIMARY       |
++----+-------------+-------+-------+---------------+
++---------+---------+-------+------+-------+
+| key     | key_len | ref   | rows | Extra |
++---------+---------+-------+------+-------+
+| PRIMARY | 4       | const |    1 |       |
++---------+---------+-------+------+-------+
+
+1 row in set (0.00 sec)
+
+EXPLAIN for: SELECT `articles`.* FROM `articles`  WHERE `articles`.`user_id` IN (1)
++----+-------------+----------+------+---------------+
+| id | select_type | table    | type | possible_keys |
++----+-------------+----------+------+---------------+
+|  1 | SIMPLE      | articles | ALL  | NULL          |
++----+-------------+----------+------+---------------+
++------+---------+------+------+-------------+
+| key  | key_len | ref  | rows | Extra       |
++------+---------+------+------+-------------+
+| NULL | NULL    | NULL |    1 | Using where |
++------+---------+------+------+-------------+
+```
+
+1 row in set (0.00 sec)
+
+для MySQL и MariaDB
+
+
+
+
 
 
 # Вьюхи <a name="3"></a>
