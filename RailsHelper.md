@@ -84,6 +84,9 @@
 * * 2.7.2 [Первичные ключи UUID](#2.7.2)
 * * 2.7.3 [Полнотекстовый поиск](#2.7.3)
 * * 2.7.4 [Представление базы данных](#2.7.4)
+* 2.8 [Основы Active Model](#2.8)
+* * 2.8.1 [Введение](#2.8.1)
+
 3. [Вьюхи](#3)
 4. [Контроллеры](#4)
 5. [Копаем глубже](#5)
@@ -6044,6 +6047,133 @@ first.archive!
 Article.count # => 1
 ```
 > Это приложение обслуживает только не архивированные `Articles`. Представление также допускает условия, при которых можно напрямую исключать архивные `Articles`.
+
+## Основы Active Model <a name="2.8"></a>
+### Введение <a name="2.8.1"></a>
+#### Методы атрибутов
+Модуль `ActiveModel::AttributeMethods` позволяет добавлять различные суффиксы и префиксы к методам класса. Для использования необходимо определить суффиксы, префиксы, а также к каким методам объекта они будут применяться.
+```
+class Person
+  include ActiveModel::AttributeMethods
+
+  attribute_method_prefix 'reset_'
+  attribute_method_suffix '_highest?'
+  define_attribute_methods 'age'
+
+  attr_accessor :age
+
+  private
+    def reset_attribute(attribute)
+      send("#{attribute}=", 0)
+    end
+
+    def attribute_highest?(attribute)
+      send(attribute) > 100
+    end
+end
+
+person = Person.new
+person.age = 110
+person.age_highest?  # => true
+person.reset_age     # => 0
+person.age_highest?  # => false
+```
+#### Колбэки
+
+Модуль `ActiveModel::Callbacks` дает Active Record возможность использования функций обратного вызова (колбэков). Это позволяет определять колбэки, вызываемые в определенное время. После определения колбэков можно обернуть их дополнительной функциональностью `before`, `after` и `around`, которые позволяют определить момент вызова колбэка "до", "после" и "до и после" вызова нужного метода.
+```
+class Person
+  extend ActiveModel::Callbacks
+
+  define_model_callbacks :update
+
+  before_update :reset_me
+
+  def update
+    run_callbacks(:update) do
+      # Этот метод вызывается при вызове у обьекта метода update.
+    end
+  end
+
+  def reset_me
+    # Этот метод вызывается при вызове у обьекта метода update, выполнение метода reset_me произойдет до вызова update, т.к он определен как колбэк before_update.
+  end
+end
+```
+
+#### Преобразования
+Если для класса определены методы `persisted?` и `id`, то можно добавить модуль `ActiveModel::Conversion` в этот класс и вызывать методы преобразования Rails на объектах этого класса.
+```
+class Person
+  include ActiveModel::Conversion
+
+  def persisted?
+    false
+  end
+
+  def id
+    nil
+  end
+end
+
+person = Person.new
+person.to_model == person  # => true
+person.to_key              # => nil
+person.to_param            # => nil
+```
+#### Грязный объект
+
+Объект становится грязным после одного или нескольких изменений его атрибутов, и при этом он не был сохранен. `ActiveModel::Dirty` дает возможность проверить, был ли объект изменен или нет. Также имеются атрибуты на основе акцессор-методов. Представим, что имеется класс Person с атрибутами `first_name` и `last_name`:
+```
+class Person
+  include ActiveModel::Dirty
+  define_attribute_methods :first_name, :last_name
+
+  def first_name
+    @first_name
+  end
+
+  def first_name=(value)
+    first_name_will_change!
+    @first_name = value
+  end
+
+  def last_name
+    @last_name
+  end
+
+  def last_name=(value)
+    last_name_will_change!
+    @last_name = value
+  end
+
+  def save
+    # метод для сохранения изменений...
+    changes_applied
+  end
+end
+```
+##### Запрашиваем у объекта список всех измененных атрибутов
+``
+person = Person.new
+person.changed? # => false
+
+person.first_name = "First Name"
+person.first_name # => "First Name"
+
+# возвращает true, если хотя бы у одного из атрибутов есть несохраненное значение.
+person.changed? # => true
+
+# возвращает список атрибутов, которые были изменены до сохранения.
+person.changed # => ["first_name"]
+
+# возвращает хэш с измененными атрибутами вместе с их первоначальными значениями.
+person.changed_attributes # => {"first_name"=>nil}
+
+# возвращает хэш изменений с именами атрибутов в качестве ключей, и их значений как массива, который содержит старое и новое значение поля.
+person.changes # => {"first_name"=>[nil, "First Name"]}
+```
+
 
 
 # Вьюхи <a name="3"></a>
