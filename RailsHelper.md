@@ -86,7 +86,6 @@
 * * 2.7.4 [Представление базы данных](#2.7.4)
 * 2.8 [Основы Active Model](#2.8)
 * * 2.8.1 [Введение](#2.8.1)
-
 3. [Вьюхи](#3)
 * 3.1 [Обзор Action View](#3.1)
 * * 3.1.1 [Что такое Action View?](#3.1.1)
@@ -111,7 +110,6 @@
 * * 3.3.8 [Формы к внешним ресурсам](#3.3.8)
 * * 3.3.9 [Создание сложных форм](#3.3.9)
 * * 3.3.10 [Использование form_for и form_tag](#3.3.10)
-
 4. [Контроллеры](#4)
 * 4.1 [Обзор Action Controller](#4.1)
 * * 4.1.1 [Что делает контроллер?](#4.1.1)
@@ -136,7 +134,6 @@
 * * 4.2.4 [Настройка ресурсных маршрутов](#4.2.4)
 * * 4.2.5 [Разделение очень большого маршрутного файл на несколько небольших:](#4.2.5)
 * * 4.2.6 [Осмотр и тестирование маршрутов](#4.2.6)
-
 5. [Копаем глубже](#5)
 * 5.1 [Расширения ядра Active Support] (#5.1)
 * * 5.1.1 [Как загрузить расширения ядра] (#5.1.1)
@@ -160,10 +157,6 @@
 * * 5.1.19 [Расширения для `NameError`] (#5.1.19)
 * * 5.1.20 [Расширения для `LoadError`] (#5.1.20)
 
-
-
-* 5.1 [Безопасность приложений на Rails](#5.1)
-* 5.11 [Командная строка Rails](#5.11)
 6. [Расширяем Rails](#6)
 * 6.5 [Rails для API приложений](#6.5)
 7. [Вносим вклад](#7)
@@ -11205,6 +11198,1089 @@ assert_routing({ path: 'photos', method: :post }, { controller: 'photos', action
 
 
 # Копаем глубже <a name="5"></a>
+## Расширения ядра Active Support <a name="5.1"></a>
+Active Support - это компонент Ruby on Rails, отвечающий за предоставление расширений для языка Ruby, утилит и множества других вещей.
+
+Он предлагает более ценные функции на уровне языка, нацеленные как на разработку приложений на Rails, так и на разработку самого Ruby on Rails.
+
+После прочтения этого руководства, вы узнаете:
+* Что такое расширения ядра.
+* Как загрузить все расширения.
+* Как подобрать только те расширения, которые вам нужны.
+* Какие расширения предоставляет Active Support.
+
+### Как загрузить расширения ядра <a name="5.1.1"></a>
+#### Автономный Active Support
+Для обеспечения минимума влияния, Active Support по умолчанию ничего не загружает. Он разбит на маленькие части, поэтому можно загружать лишь то, что нужно, и имеет некоторые точки входа, которые по соглашению загружают некоторые расширения за раз, или даже все.
+
+Таким образом, после обычного `require`:
+```
+require 'active_support'
+```
+объекты не будут даже реагировать на `blank?`. Давайте посмотрим, как загрузить эти определения.
+
+##### Подбор определений
+Наиболее легкий способ получить `blank?` - подцепить файл, который его определяет.
+
+Для каждого отдельного метода, определенного как расширение ядра, в этом руководстве имеется заметка, сообщающая, где такой метод определяется. В случае с `blank?` заметка гласит:
+
+> Определено в active_support/core_ext/object/blank.rb.
+
+Это означает, что это можно затребовать следующим образом:
+```
+require 'active_support'
+require 'active_support/core_ext/object/blank'
+```
+Active Support был тщательно пересмотрен и теперь подхватывает только те файлы для загрузки, которые содержат строго необходимые зависимости, если такие имеются.
+
+##### Загрузка сгруппированных расширений ядра
+Следующий уровень - это просто загрузка всех расширений к `Object`. Как правило, расширения к `SomeClass` доступны за раз при загрузке `active_support/core_ext/some_class`.
+
+Таким образом, чтобы загрузить все расширения `Object` (в том числе `blank?`):
+```
+require 'active_support'
+require 'active_support/core_ext/object'
+```
+##### Загрузка всех расширений ядра
+Возможно, вы предпочтете загрузить все расширения ядра, вот файл для этого необходимо:
+```
+require 'active_support'
+require 'active_support/core_ext'
+```
+
+##### Загрузка всего Active Support
+И наконец, если необходимо получить доступ ко всему Active Support, просто выполните:
+```
+require 'active_support/all'
+```
+В действительности это даже не поместит весь Active Support в память, так как некоторые вещи настроены через `autoload`, поэтому они загружаются только когда используются.
+
+#### Active Support в приложении на Ruby on Rails
+Приложение на Ruby on Rails загружает весь Active Support, кроме случая когда` config.active_support.bare` равен `true`. В этом случае приложение загрузит только сам фреймворк и подберет файлы для собственных нужд, и позволит подобрать вам файлы самостоятельно на любом уровне, как описано в предыдущем разделе.
+
+### Расширения ко всем объектам <a name="5.1.2"></a>
+#### `blank?` и `present?`
+Следующие значения рассматриваются как пустые в Rails приложении:
+* `nil` и `false`,
+* строки, состоящие только из пробелов (смотрите примечание ниже),
+* пустые массивы и хэши,
+* и любые другие объекты, откликающиеся на `empty?` и являющиеся пустыми. 
+
+> Предикат для строк использует совместимый с Unicode символьный класс `[:space:]`, поэтому, к примеру, U+2029 (разделитель параграфов) рассматривается как пробел.
+
+> Отметьте, что числа тут не упомянуты, в частности, 0 и 0.0 не являются пустыми.
+
+Например, этот метод из `ActionController::HttpAuthentication::Token::ControllerMethods` использует `blank?` для проверки, существует ли токен:
+```
+def authenticate(controller, &login_procedure)
+  token, options = token_and_options(controller.request)
+  unless token.blank?
+    login_procedure.call(token, options)
+  end
+end
+```
+Метод `present?` является эквивалентом `!blank?`. Этот пример взят из `ActionDispatch::Http::Cache::Response`:
+```
+def set_conditional_cache_control!
+  return if self["Cache-Control"].present?
+  ...
+end
+```
+Определено в `active_support/core_ext/object/blank.rb`.
+
+#### `presence`
+Метод `presence` возвращает его получателя, если `present?`, и `nil` в противном случае. Он полезен для подобных идиом:
+```
+host = config[:host].presence || 'localhost'
+```
+Определено в `active_support/core_ext/object/blank.rb`.
+
+#### `duplicable?`
+В Ruby 2.5 большинство объектов могут дублироваться с помощью `dup` или `clone`:
+```
+"foo".dup           # => "foo"
+"".dup              # => ""
+Rational(1).dup     # => (1/1)
+Complex(0).dup      # => (0+0i)
+1.method(:+).dup    # => TypeError (allocator undefined for Method)
+```
+Active Support предоставляет `duplicable?` для запроса к объекту об этой возможности:
+```
+"foo".duplicable?        # => true
+"".duplicable?           # => true
+Rational(1).duplicable?  # => true
+Complex(1).duplicable?   # => true
+1.method(:+).duplicable? # => false
+```
+`duplicable?` соответствует поведению `dup` текущей версии Ruby, поэтому результаты будут варьироваться в зависимости от используемой версии Ruby. В Ruby 2.4, например, `Complex` и `Rational` не дублируются:
+```
+Rational(1).duplicable?     # => false
+Complex(1).duplicable?      # => false
+```
+> Любой класс может запретить дублирование, убрав `dup` и `clone`, или вызвав исключение в них. Таким образом, только rescue может сказать, является ли данный произвольный объект дублируемым. `duplicable?` зависит от жестко заданного вышеуказанного перечня, но он **намного быстрее, чем `rescue`**. Используйте его только в том случае, если знаете, что жесткий перечень достаточен в конкретном случае.
+
+> Определено в `active_support/core_ext/object/duplicable.rb`.
+
+#### `deep_dup`
+
+Метод deep_dup возвращает "глубокую" копию данного объекта. Обычно при вызове `dup` на объекте, содержащем другие объекты, Ruby не вызывает `dup` для них, поэтому он создает "мелкую" копию объекта. Если, к примеру, имеется массив со строкой, это будет выглядеть так:
+```
+array     = ['string']
+duplicate = array.dup
+
+duplicate.push 'another-string'
+
+# объект был дублирован, поэтому элемент был добавлен только в дубликат
+array     # => ['string']
+duplicate # => ['string', 'another-string']
+
+duplicate.first.gsub!('string', 'foo')
+
+# первый элемент не был дублирован, он будет изменен в обоих массивах
+array     # => ['foo']
+duplicate # => ['foo', 'another-string']
+```
+
+Как видите, после дублирования экземпляра `Array`, мы получили еще один объект, следовательно мы можем его модифицировать, и исходный объект останется нетронутым. Однако, это не истинно для элементов массива. Поскольку dup не делает "глубокую" копию, строка внутри массива остается тем же самым объектом.
+
+Если нужна "глубокая" копия объекта, следует использовать `deep_dup`. Вот пример:
+```
+array     = ['string']
+duplicate = array.deep_dup
+
+duplicate.first.gsub!('string', 'foo')
+
+array     # => ['string']
+duplicate # => ['foo']
+```
+Если объект нельзя дублировать, deep_dup просто возвратит его:
+```
+number = 1
+duplicate = number.deep_dup
+number.object_id == duplicate.object_id   # => true
+```
+> Определено в `active_support/core_ext/object/deep_dup.rb`.
+
+#### `try`
+Когда необходимо вызвать метод на объекте, но только в том случае, если он не `nil`, то простейшим способом достичь этого является условное выражение, добавляющее ненужный код. Альтернативой является использование `try`. `try` похож на `Object#send` за исключением того, что он возвращает `nil`, если вызван на `nil`.
+
+Вот пример:
+```
+# без try
+unless @number.nil?
+  @number.next
+end
+
+# используя try
+@number.try(:next)
+```
+Другим примером является этот код из `ActiveRecord::ConnectionAdapters::AbstractAdapter`, где `@logger` может быть `nil`. Код использует `try` и позволяет избегать ненужной проверки.
+```
+def log_info(sql, name, ms)
+  if @logger.try(:debug?)
+    name = '%s (%.1fms)' % [name || 'SQL', ms]
+    @logger.debug(format_log_entry(name, sql.squeeze(' ')))
+  end
+end
+```
+`try` также может быть вызван не с аргументами, а с блоком, который будет выполнен, если объект не `nil`:
+```
+@person.try { |p| "#{p.first_name} #{p.last_name}" }
+```
+Отметьте, что `try` поглотит ошибки об отсутствующем методе, возвратив вместо них `nil`. **Если необходимо защититься от таких ошибок, используйте вместо него `try!`**:
+```
+@number.try(:nest)  # => nil
+@number.try!(:nest) # NoMethodError: undefined method `nest' for 1:Integer
+```
+Определено в `active_support/core_ext/object/try.rb`.
+
+#### `class_eval(*args, &block)`
+Можно вычислить код в контексте синглтон-класса любого объекта, используя `class_eval`:
+```
+class Proc
+  def bind(object)
+    block, time = self, Time.current
+    object.class_eval do
+      method_name = "__bind_#{time.to_i}_#{time.usec}"
+      define_method(method_name, &block)
+      method = instance_method(method_name)
+      remove_method(method_name)
+      method
+    end.bind(object)
+  end
+end
+```
+> Определено в `active_support/core_ext/kernel/singleton_class.rb`.
+
+#### `acts_like?(duck)`
+Метод `acts_like?` предоставляет возможность проверить, работает ли некий класс как некоторый другой класс, основываясь на простом соглашении: класс предоставляющий тот же интерфейс, как у `String` определяет
+```
+def acts_like_string?
+end
+```
+являющийся всего лишь маркером, его содержимое или возвращаемое значение ничего не значит. Затем, код клиента может запросить "безопасную утиную типизацию" следующим образом:
+```
+some_klass.acts_like?(:string)
+```
+В Rails имеются классы, действующие как `Date` или `Time` и следующие этому соглашению.
+
+> Определено в `active_support/core_ext/object/acts_like.rb`.
+
+#### `to_param`
+
+Все объекты в Rails отвечают на метод `to_param`, который предназначен для возврата чего-то, что представляет их в строке запроса или как фрагменты URL.
+
+По умолчанию `to_param` просто вызывает `to_s`:
+```
+7.to_param # => "7"
+```
+Возвращаемое значение `to_param` не должно быть экранировано:
+```
+"Tom & Jerry".to_param # => "Tom & Jerry"
+```
+Некоторые классы в Rails переопределяют этот метод.
+
+Например, `nil`, `true` и `false` возвращают сами себя. `Array#to_param` вызывает `to_param` на элементах и соединяет результат с помощью "/":
+```
+[0, true, String].to_param # => "0/true/String"
+```
+В частности, система роутинга Rails вызывает `to_param` на моделях, чтобы получить значение для местозаполнителя `:id`. `ActiveRecord::Base#to_param` возвращает `id` модели, но можно переопределить этот метод в своих моделях. Например, задав
+```
+class User
+  def to_param
+    "#{id}-#{name.parameterize}"
+  end
+end
+```
+мы получим:
+```
+user_path(@user) # => "/users/357-john-smith"
+```
+> Контроллерам нужно быть в курсе любых переопределений `to_param`, поскольку в подобном запросе "357-john-smith" будет значением `params[:id]`.
+
+> Определено в `active_support/core_ext/object/to_param.rb`.
+
+#### `to_query`
+
+За исключением хэшей, для заданного неэкранированного ключа этот метод создает часть строки запроса, который связывает с этим ключом то, что возвращает `to_param`. Например, задав
+```
+class User
+  def to_param
+    "#{id}-#{name.parameterize}"
+  end
+end
+```
+мы получим:
+```
+current_user.to_query('user') # => "user=357-john-smith"
+```
+Этот метод экранирует все, что требуется: и ключ, и значение:
+```
+account.to_query('company[name]')
+# => "company%5Bname%5D=Johnson+%26+Johnson"
+```
+поэтому результат готов для использования в строке запроса.
+
+Массивы возвращают результат применения `to_query` к каждому элементу с `key[]` в качестве ключа, и соединяет результат с помощью "&":
+```
+[3.4, -45.6].to_query('sample')
+# => "sample%5B%5D=3.4&sample%5B%5D=-45.6"
+```
+Хэши также отвечают на `to_query`, но c другой сигнатурой. Если аргумент не передается, вызов генерирует отсортированную серию присваиваний ключ/значение, вызвав `to_query(key)` на этих значениях. Затем он соединяет результат с помощью "&":
+```
+{c: 3, b: 2, a: 1}.to_query # => "a=1&b=2&c=3"
+```
+Метод `Hash#to_query` принимает опциональное пространство имен для ключей:
+```
+{id: 89, name: "John Smith"}.to_query('user')
+# => "user%5Bid%5D=89&user%5Bname%5D=John+Smith"
+```
+> Определено в `active_support/core_ext/object/to_query.rb`.
+
+#### `with_options`
+
+Метод `with_options` предоставляет способ для выделения общих опций в серии вызовов метода.
+
+Задав дефолтный хэш опций, `with_options` предоставляет прокси-объект в блок. Внутри блока методы, вызванные на прокси, отправляются получателю с объединением своих опций. Например, чтобы избавиться от дублирования:
+```
+class Account < ApplicationRecord
+  has_many :customers, dependent: :destroy
+  has_many :products,  dependent: :destroy
+  has_many :invoices,  dependent: :destroy
+  has_many :expenses,  dependent: :destroy
+end
+```
+заменяем на:
+```
+class Account < ApplicationRecord
+  with_options dependent: :destroy do |assoc|
+    assoc.has_many :customers
+    assoc.has_many :products
+    assoc.has_many :invoices
+    assoc.has_many :expenses
+  end
+end
+```
+Эта идиома может передавать группировку в ридер (reader). Например скажем, что нужно послать `newsletter`, язык которого зависит от пользователя. Где-нибудь в рассыльщике можно сгруппировать кусочки, зависимые от локали, следующим образом:
+```
+I18n.with_options locale: user.locale, scope: "newsletter" do |i18n|
+  subject i18n.t :subject
+  body    i18n.t :body, user_name: user.name
+end
+```
+Поскольку `with_options` переадресовывает вызовы получателю, они могут быть вложены. Каждый уровень вложенности будет объединять унаследованные дефолтные значения со своими собственными.
+
+> Определено в `active_support/core_ext/object/with_options.rb`.
+
+#### Поддержка JSON
+Active Support обеспечивает лучшую реализацию `to_json`, чем гем `json`, обычно предоставленный для объектов Ruby. Это так, потому что некоторые классы, такие как `Hash`, `OrderedHash` и `Process::Status`, нуждаются в специальной обработке для обеспечения подходящего JSON.
+
+> Определено в `active_support/core_ext/object/json.rb`.
+
+#### Переменные экземпляра
+Active Support предоставляет несколько методов для облегчения доступа к переменным экземпляра.
+
+##### `instance_values`
+Метод `instance_values` возвращает хэш, который связывает имена переменных экземпляра без "@" с их соответствующими значениями. Ключи являются строками:
+```
+class C
+  def initialize(x, y)
+    @x, @y = x, y
+  end
+end
+
+C.new(0, 1).instance_values # => {"x" => 0, "y" => 1}
+```
+> Определено в `active_support/core_ext/object/instance_variables.rb`.
+
+##### `instance_variable_names`
+Метод `instance_variable_names` возвращает массив. Каждое имя включает знак "@".
+```
+class C
+  def initialize(x, y)
+    @x, @y = x, y
+  end
+end
+
+C.new(0, 1).instance_variable_names # => ["@x", "@y"]
+```
+> Определено в `active_support/core_ext/object/instance_variables.rb`.
+
+#### Отключение предупреждений и исключения
+Методы `silence_warnings` и `enable_warnings` изменяют значение `$VERBOSE` в течение исполнения блока, и сбрасывают в исходное значение после его окончания:
+```
+silence_warnings { Object.const_set "RAILS_DEFAULT_LOGGER", logger }
+```
+Отключение исключений также возможно с помощью `suppress`. Этот метод получает определенное количество классов исключений. Если вызывается исключение во время выполнения блока, и `kind_of?` соответствует любому аргументу, `suppress` ловит его и возвращает отключенным. В противном случае исключение не захватывается:
+```
+# Если пользователь под блокировкой, инкремент теряется, ничего страшного.
+suppress(ActiveRecord::StaleObjectError) do
+  current_user.increment! :visits
+end
+```
+> Определено в `active_support/core_ext/kernel/reporting.rb`.
+
+#### `in?`
+
+Предикат `in?` проверяет, включен ли объект в другой объект. Если переданный элемент не отвечает на `include?`, будет вызвано исключение `ArgumentError`.
+
+Примеры применения `in?`:
+```
+1.in?([1,2])        # => true
+"lo".in?("hello")   # => true
+25.in?(30..50)      # => false
+1.in?(1)            # => ArgumentError
+```
+> Определено в `active_support/core_ext/object/inclusion.rb`.
+
+### Расширения для `Module` <a name="5.1.3"></a>
+#### Атрибуты
+##### `alias_attribute`
+В атрибутах модели есть ридер (reader), райтер (writer) и предикат. Можно создать псевдоним к атрибуту модели, в котором будут определены сразу три соответствующих метода. Как и в других создающих псевдоним методах, новое имя - это первый аргумент, а старое имя - второй (мнемоническое правило такое: они идут в том же порядке, как если бы делалось присваивание):
+```
+class User < ApplicationRecord
+  # Теперь можно обращаться к столбцу email как "login".
+  # Это имеет больше смысла для кода аутентификации.
+  alias_attribute :login, :email
+end
+```
+> Определено в `active_support/core_ext/module/aliasing.rb`.
+
+##### Внутренние атрибуты
+При определении атрибута в классе, который предназначен для подкласса, есть риск коллизии подклассовых имен. Это особенно важно для библиотек.
+
+Active Support определяет макросы `attr_internal_reader`, `attr_internal_writer` и `attr_internal_accessor`. Они ведут себя подобно встроенным в Ruby коллегам `attr_*`, за исключением того, что они именуют лежащую в основе переменную экземпляра способом, наиболее снижающим коллизии.
+
+Макрос `attr_internal` - это синоним для `attr_internal_accessor`:
+```
+# библиотека
+class ThirdPartyLibrary::Crawler
+  attr_internal :log_level
+end
+
+# код клиента
+class MyCrawler < ThirdPartyLibrary::Crawler
+  attr_accessor :log_level
+end
+```
+В предыдущем примере мог быть случай, при котором `:log_level` не принадлежит публичному интерфейсу библиотеки и используется только для разработки. Код клиента, не подозревающий о потенциальном конфликте, создает подкласс и определяет внутри него свой `:log_level`. Благодаря `attr_internal` здесь не будет коллизий.
+
+**По умолчанию внутренняя переменная экземпляра именуется с предшествующим подчеркиванием**, `@_log_level` в примере выше. Это настраивается через `Module.attr_internal_naming_format`, куда можно передать любую строку в формате `sprintf` с предшествующими `@` и `%s` в любом месте, которая означает место, куда вставляется имя. По умолчанию `"@_%s"`.
+
+Rails использует внутренние атрибуты в некоторых местах, например для вьюх:
+```
+module ActionView
+  class Base
+    attr_internal :captures
+    attr_internal :request, :layout
+    attr_internal :controller, :template
+  end
+end
+```
+> Определено в `active_support/core_ext/module/attr_internal.rb`.
+
+##### Атрибуты модуля
+
+Макросы `mattr_reader`, `mattr_writer` и `mattr_accessor` - это те же самые макросы `cattr_*`, определенным для класса. Фактически, макросы `cattr_*` — это всего лишь псевдонимы для макросов `mattr_*`.
+
+Например, их использует механизм зависимостей:
+```
+module ActiveSupport
+  module Dependencies
+    mattr_accessor :warnings_on_first_load
+    mattr_accessor :history
+    mattr_accessor :loaded
+    mattr_accessor :mechanism
+    mattr_accessor :load_paths
+    mattr_accessor :load_once_paths
+    mattr_accessor :autoloaded_constants
+    mattr_accessor :explicitly_unloadable_constants
+    mattr_accessor :constant_watch_stack
+    mattr_accessor :constant_watch_stack_mutex
+  end
+end
+```
+> Определено в `active_support/core_ext/module/attribute_accessors.rb`.
+
+#### Родители
+##### `module_parent`
+Метод `module_parent` на вложенном именованном модуле возвращает модуль, содержащий его соответствующую константу:
+```
+module X
+  module Y
+    module Z
+    end
+  end
+end
+M = X::Y::Z
+
+X::Y::Z.module_parent # => X::Y
+M.module_parent       # => X::Y
+```
+Если модуль анонимный или относится к верхнему уровню, `module_parent` возвращает `Object`.
+
+> Отметьте, что в этом случае `module_parent_name` возвращает `nil`.
+
+> Определено в `active_support/core_ext/module/introspection.rb`.
+
+##### `module_parent_name`
+Метод `module_parent_name` на вложенном именованном модуле возвращает полностью определенное имя модуля, содержащего его соответствующую константу:
+```
+module X
+  module Y
+    module Z
+    end
+  end
+end
+M = X::Y::Z
+
+X::Y::Z.module_parent_name # => "X::Y"
+M.module_parent_name       # => "X::Y"
+```
+Для верхнеуровневых и анонимных модулей `module_parent_name` возвращает `nil`.
+
+> Отметьте, что в этом случае `module_parent` возвращает `Object`.
+
+> Определено в `active_support/core_ext/module/introspection.rb`.
+
+##### `parents`
+Метод `module_parents` вызывает `module_parent` на получателе и вверх по иерархии, пока не будет достигнут `Object`. Цепочка возвращается в массиве, от низшего к высшему:
+```
+module X
+  module Y
+    module Z
+    end
+  end
+end
+M = X::Y::Z
+
+X::Y::Z.module_parents # => [X::Y, X, Object]
+M.module_parents       # => [X::Y, X, Object]
+```
+> Определено в `active_support/core_ext/module/introspection.rb`.
+
+#### `Anonymous`
+У модуля может быть или не быть имени:
+```
+module M
+end
+M.name # => "M"
+
+N = Module.new
+N.name # => "N"
+
+Module.new.name # => nil
+```
+Можно проверить, имеет ли модуль имя с помощью предиката `anonymous?`:
+```
+module M
+end
+M.anonymous? # => false
+
+Module.new.anonymous? # => true
+```
+Отметьте, что быть недостижимым не означает быть анонимным:
+```
+module M
+end
+
+m = Object.send(:remove_const, :M)
+
+m.anonymous? # => false
+```
+хотя анонимный модуль недостижим по определению.
+
+> Определено в `active_support/core_ext/module/anonymous.rb`.
+
+#### Делегирование метода
+##### `delegate`
+Макрос `delegate` предлагает простой способ передать методы.
+
+Давайте представим, что у пользователей в неком приложении имеется информация о логинах в модели `User`, но имена и другие данные в отдельной модели `Profile`:
+```
+class User < ApplicationRecord
+  has_one :profile
+end
+```
+С такой конфигурацией можно получить имя пользователя через его профиль, `user.profile.name`, но было бы удобнее обеспечить доступ к такому атрибуту напрямую:
+```
+class User < ApplicationRecord
+  has_one :profile
+
+  def name
+    profile.name
+  end
+end
+```
+Это как раз то, что делает `delegate`:
+```
+class User < ApplicationRecord
+  has_one :profile
+
+  delegate :name, to: :profile
+end
+```
+Это короче, и намерения более очевидные.
+
+Целевой метод должен быть публичным.
+
+Макрос `delegate` принимает несколько методов:
+```
+delegate :name, :age, :address, :twitter, to: :profile
+```
+При интерполяции в строку опция `:to` должна стать выражением, вычисляемым объектом, метод которого делегируется. Обычно строка или символ. Такое выражение вычисляется в контексте получателя:
+```
+# делегирует константе Rails
+delegate :logger, to: :Rails
+
+# делегирует классу получателя
+delegate :table_name, to: :class
+```
+> Если опция `:prefix` установлена в `true` - это менее характерно, смотрите ниже.
+
+По умолчанию, если делегирование вызывает `NoMethodError` и цель является `nil`, выводится исключение. Можно попросить с помощью опции `:allow_nil`, чтобы вместо этого возвращался `nil`:
+```
+delegate :name, to: :profile, allow_nil: true
+```
+С `:allow_nil` вызов `user.name` возвратит `nil`, если у пользователя нет профиля.
+
+Опция `:prefix` добавляет префикс к имени генерируемого метода. Это может быть удобно, например, для получения более благозвучного имени:
+```
+delegate :street, to: :address, prefix: true
+```
+Предыдущий пример сгенерирует `address_street`, а не `street`.
+
+> Поскольку в этом случае имя генерируемого метода составляется из имен целевого объекта и целевого метода, опция `:to` должна быть именем метода.
+
+Также может быть настроен произвольный префикс:
+```
+delegate :size, to: :attachment, prefix: :avatar
+```
+В предыдущем примере макрос генерирует `avatar_size`, а не `size`.
+
+Опция `:private` изменяет область видимости методов:
+```
+delegate :date_of_birth, to: :profile, private: true
+```
+Делегированные методы являются публичными по умолчанию. Передайте `private: true`, чтобы изменить это.
+
+> Определено в `active_support/core_ext/module/delegation.rb`
+
+##### `delegate_missing_to`
+Представьте, что нужно делегировать все, отсутствующее в объекте `User` в `Profile`. Макрос `delegate_missing_to` позволяет реализовать это быстро:
+```
+class User < ApplicationRecord
+  has_one :profile
+
+  delegate_missing_to :profile
+end
+```
+Целью может быть все что угодно, вызываемое внутри объекта, например, переменные экземпляра, методы, константы и т.д. Делегируются только публичные методы цели.
+
+> Определено в `active_support/core_ext/module/delegation.rb`.
+
+#### Переопределение методов
+Бывают ситуации, когда нужно определить метод с помощью `define_method`, но вы не знаете, существует ли уже метод с таким именем. Если так, то выдается предупреждение, если оно включено. Такое поведение хоть и не ошибочно, но не элегантно.
+
+Метод `redefine_method` предотвращает такое потенциальное предупреждение, предварительно убирая существующий метод, если нужно.
+
+Также можно использовать `silence_redefinition_of_method`, если необходимо определить заменяющий метод отдельно (потому что используется `delegate`, например).
+
+> Определено в `active_support/core_ext/module/redefine_method.rb`.
+
+### Расширения для `Class` <a name="5.1.4"></a>
+#### Атрибуты класса
+##### `class_attribute`
+Метод `class_attribute` объявляет один или более наследуемых атрибутов класса, которые могут быть переопределены на низшем уровне иерархии:
+```
+class A
+  class_attribute :x
+end
+
+class B < A; end
+
+class C < B; end
+
+A.x = :a
+B.x # => :a
+C.x # => :a
+
+B.x = :b
+A.x # => :a
+C.x # => :b
+
+C.x = :c
+A.x # => :a
+B.x # => :b
+```
+Например, `ActionMailer::Base определяет`:
+```
+class_attribute :default_params
+self.default_params = {
+  mime_version: "1.0",
+  charset: "UTF-8",
+  content_type: "text/plain",
+  parts_order: [ "text/plain", "text/enriched", "text/html" ]
+}.freeze
+```
+К ним также есть доступ, и они могут быть переопределены на уровне экземпляра:
+```
+A.x = 1
+
+a1 = A.new
+a2 = A.new
+a2.x = 2
+
+a1.x # => 1, приходит из A
+a2.x # => 2, переопределено в a2
+```
+Генерация райтер-метода экземпляра может быть отключена установлением опции `:instance_writer` в `false`.
+```
+module ActiveRecord
+  class Base
+    class_attribute :table_name_prefix, instance_writer: false, default: "my"
+  end
+end
+```
+В модели такая опция может быть полезной как способ предотвращения массового назначения для установки атрибута.
+
+Генерация ридер-метода экземпляра может быть отключена установлением опции `:instance_reader` в `false`.
+```
+class A
+  class_attribute :x, instance_reader: false
+end
+
+A.new.x = 1
+A.new.x # NoMethodError
+```
+Для удобства `class_attribute` определяет также предикат экземпляра, являющийся двойным отрицанием того, что возвращает ридер экземпляра. В вышеописанном примере оно может вызываться `x?`.
+
+Когда `instance_reader` равен `false`, предикат экземпляра возвратит `NoMethodError`, как и ридер-метод.
+
+Если не нужен предикат, передайте `instance_predicate: false`, и он не будет определен.
+
+> Определено в `active_support/core_ext/class/attribute.rb`.
+
+##### `cattr_reader`, `cattr_writer` и `cattr_accessor`
+Макросы `cattr_reader`, `cattr_writer` и `cattr_accessor` являются аналогами их коллег `attr_*`, но для классов. Они инициализируют переменную класса как `nil`, если она еще не существует, и генерируют соответствующие методы класса для доступа к ней:
+```
+class MysqlAdapter < AbstractAdapter
+  # Генерирует методы класса для доступа к @@emulate_booleans.
+  cattr_accessor :emulate_booleans
+end
+```
+Также можно передать блок в `cattr_*` для настройки атрибута со значением по умолчанию:
+```
+class MysqlAdapter < AbstractAdapter
+  # Генерирует методы класса для доступа к @@emulate_booleans со значением по умолчанию true.
+  cattr_accessor :emulate_booleans, default: true
+end
+```
+Методы экземпляра также создаются для удобства, они всего лишь прокси к атрибуту класса. Таким образом, **экземпляры могут менять атрибут класса, но не могут переопределять его**, как это происходит в случае с `class_attribute` (смотрите выше). К примеру, задав
+```
+module ActionView
+  class Base
+    cattr_accessor :field_error_proc, default: Proc.new { ... }
+  end
+end
+```
+мы получим доступ к `field_error_proc` во вьюхах.
+
+Генерация ридер-метода экземпляра предотвращается установкой `:instance_reader` в `false` и генерация райтер-метода экземпляра предотвращается установкой `:instance_writer` в `false`. Генерация обоих методов предотвращается установкой `:instance_accessor` в `false`. Во всех случаях, должно быть не любое ложное значение, а именно `false`:
+```
+module A
+  class B
+    # first_name ридер экземпляра не генерируется.
+    cattr_accessor :first_name, instance_reader: false
+    # last_name= райтер экземпляра не генерируется.
+    cattr_accessor :last_name, instance_writer: false
+    # surname ридер экземпляра или surname= райтер экземпляра не генерируется.
+    cattr_accessor :surname, instance_accessor: false
+  end
+end
+```
+В модели может быть полезным установить `:instance_accessor` в `false` как способ предотвращения массового назначения для установки атрибута.
+
+> Определено в `active_support/core_ext/class/attribute_accessors.rb`.
+
+#### Подклассы и потомки
+##### `subclasses`
+Метод `subclasses` возвращает подклассы получателя:
+```
+class C; end
+C.subclasses # => []
+
+class B < C; end
+C.subclasses # => [B]
+
+class A < B; end
+C.subclasses # => [B]
+
+class D < C; end
+C.subclasses # => [B, D]
+```
+Порядок, в котором эти классы возвращаются, не определен.
+
+> Определено в `active_support/core_ext/class/subclasses.rb`.
+
+##### `descendants`
+Метод `descendants` возвращает все классы, которые являются `<` к его получателю:
+```
+class C; end
+C.descendants # => []
+
+class B < C; end
+C.descendants # => [B]
+
+class A < B; end
+C.descendants # => [B, A]
+
+class D < C; end
+C.descendants # => [B, A, D]
+```
+Порядок, в котором эти классы возвращаются, не определен.
+
+> Определено в `active_support/core_ext/class/subclasses.rb`.
+
+### Расширения для `String` <a name="5.1.5"></a>
+#### Безопасность вывода
+##### Мотивация
+Вставка данных в шаблоны HTML требует дополнительной осторожности. Например, нельзя просто интерполировать @review.title на страницу HTML. С одной стороны, если заголовок рецензии "Flanagan & Matz rules!", то результат не будет правильно отображен, поскольку амперсанд должен быть экранирован как "&amp;". К тому же, в зависимости от приложения, это может быть большой дырой в безопасности, так как пользователи могут внедрить вредоносный HTML, устанавливающий вручную изготовленный заголовок рецензии.
+
+##### Безопасные строки
+В Active Support есть концепция (html) безопасных строк. Безопасная строка - это та, которая помечена как подлежащая вставке в HTML как есть. Ей можно доверять, независимо от того, была она экранирована или нет.
+
+Строки рассматриваются как небезопасные по умолчанию:
+```
+"".html_safe? # => false
+```
+Можно получить безопасную строку из заданной с помощью метода `html_safe`:
+```
+s = "".html_safe
+s.html_safe? # => true
+```
+Важно понять, что `html_safe` не выполняет какого бы то ни было экранирования, это всего лишь утверждение:
+```
+s = "<script>...</script>".html_safe
+s.html_safe? # => true
+s            # => "<script>...</script>"
+```
+Вы ответственны за обеспечение вызова `html_safe` на подходящей строке.
+
+При присоединении к безопасной строке или с помощью `concat/<<`, или с помощью `+`, результат будет безопасной строкой. Небезопасные аргументы экранируются:
+```
+"".html_safe + "<" # => "&lt;"
+```
+Безопасные аргументы непосредственно присоединяются:
+```
+"".html_safe + "<".html_safe # => "<"
+```
+Эти методы не должны использоваться в обычных вьюхах. Небезопасные значения автоматически экранируются:
+```
+<%= @review.title %> <%# прекрасно, экранируется, если нужно %>
+```
+Чтобы вставить что-либо дословно, используйте хелпер raw вместо вызова `html_safe`:
+```
+<%= raw @cms.current_template %> <%# вставляет @cms.current_template как есть %>
+```
+или используйте эквивалентную запись `<%==`:
+```
+<%== @cms.current_template %> <%# вставляет @cms.current_template как есть %>
+```
+Хелпер `raw` вызывает за вас хелпер `html_safe`:
+```
+def raw(stringish)
+  stringish.to_s.html_safe
+end
+```
+> Определено в `active_support/core_ext/string/output_safety.rb`.
+
+##### Преобразование
+Как правило, за исключением, разве что, конкатенации, как объяснялось выше, любой метод, который может изменить строку, дает небезопасную строку. Это `downcase`, `gsub`, `strip`, `chomp`, `underscore` и т.д.
+
+В случае встроенного преобразования, такого как `gsub!`, получатель сам становится небезопасным.
+
+> Бит безопасности всегда теряется, независимо от того, изменило ли что-то преобразование или нет.
+
+##### Конверсия и принуждение
+Вызов `to_s` на безопасной строке возвратит безопасную строку, но принуждение с помощью `to_str` возвратит небезопасную строку.
+
+##### Копирование
+Вызов `dup` или `clone` на безопасной строке создаст безопасные строки.
+
+#### `remove`
+Метод `remove` уберет все совпадения с шаблоном:
+```
+"Hello World".remove(/Hello /) # => "World"
+```
+Также имеется деструктивная версия `String#remove!`.
+
+> Определено в `active_support/core_ext/string/filters.rb`.
+
+#### `squish`
+Метод `squish` отсекает начальные и конечные пробелы, а также заменяет внутренние пробелы на один пробел:
+```
+" \n  foo\n\r \t bar \n".squish # => "foo bar"
+```
+Также имеется разрушительная версия `String#squish!`.
+
+Отметьте, что он обрабатывает и `ASCII`, и `Unicode` пробелы.
+
+> Определено в `active_support/core_ext/string/filters.rb`.
+
+#### `truncate`
+Метод `truncate` возвращает копию получателя, сокращенную после заданного `length`:
+```
+"Oh dear! Oh dear! I shall be late!".truncate(20)
+# => "Oh dear! Oh dear!..."
+```
+Многоточие может быть настроено с помощью опции `:omission`:
+```
+"Oh dear! Oh dear! I shall be late!".truncate(20, omission: '&hellip;')
+# => "Oh dear! Oh &hellip;"
+```
+Отметьте, что сокращение учитывает длину строки `omission`.
+
+Передайте `:separator` для сокращения строки по естественным разрывам:
+```
+"Oh dear! Oh dear! I shall be late!".truncate(18)
+# => "Oh dear! Oh dea..."
+"Oh dear! Oh dear! I shall be late!".truncate(18, separator: ' ')
+# => "Oh dear! Oh..."
+```
+Опция `:separator` может быть регулярным выражением:
+```
+"Oh dear! Oh dear! I shall be late!".truncate(18, separator: /\s/)
+# => "Oh dear! Oh..."
+```
+В вышеуказанных примерах "dear" обрезается сначала, а затем `:separator` предотвращает это.
+
+> Определено в `active_support/core_ext/string/filters.rb`.
+
+#### `truncate_words`
+Метод `truncate_words` возвращает копию получателя, сокращенную после заданного количества слов:
+```
+"Oh dear! Oh dear! I shall be late!".truncate_words(4)
+# => "Oh dear! Oh dear!..."
+```
+Многоточие может быть настроено с помощью опции `:omission`:
+```
+"Oh dear! Oh dear! I shall be late!".truncate_words(4, omission: '&hellip;')
+# => "Oh dear! Oh dear!&hellip;"
+```
+Передайте `:separator` для сокращения строки по естественным разрывам:
+```
+"Oh dear! Oh dear! I shall be late!".truncate_words(3, separator: '!')
+# => "Oh dear! Oh dear! I shall be late..."
+```
+Опция `:separator` может быть регулярным выражением:
+```
+"Oh dear! Oh dear! I shall be late!".truncate_words(4, separator: /\s/)
+# => "Oh dear! Oh dear!..."
+```
+> Определено в `active_support/core_ext/string/filters.rb`.
+
+#### `inquiry`
+
+Метод `inquiry` конвертирует строку в объект `StringInquirer`, делая проверки равенства более красивыми.
+```
+"production".inquiry.production? # => true
+"active".inquiry.inactive?       # => false
+```
+
+#### `starts_with?` и `ends_with?`
+Active Support определяет псевдонимы `String#start_with?` и `String#end_with?` (в связи с особенностями английской морфологии, преобразует глаголы в форму 3-го лица):
+```
+"foo".starts_with?("f") # => true
+"foo".ends_with?("o")   # => true
+```
+> Определено в `active_support/core_ext/string/starts_ends_with.rb`.
+
+#### `strip_heredoc`
+Метод `strip_heredoc` обрезает отступы в heredocs.
+
+Для примера в
+```
+if options[:usage]
+  puts <<-USAGE.strip_heredoc
+    This command does such and such.
+
+    Supported options are:
+      -h         This message
+      ...
+  USAGE
+end
+```
+пользователь увидит используемое сообщение, выровненное по левому краю.
+
+Технически это выглядит как выделение красной строки в отдельную строку и удаление всех впередиидущих пробелов.
+
+> Определено в `active_support/core_ext/string/strip.rb`.
+
+#### `indent`
+
+Устанавливает отступы строчкам получателя:
+```
+<<EOS.indent(2)
+def some_method
+  some_code
+end
+EOS
+# =>
+  def some_method
+    some_code
+  end
+```
+Второй аргумент, `indent_string`, определяет, какой отступ строки использовать. По умолчанию `nil`, что сообщает методу самому догадаться на основе первой строчки с отступом, а если такой нет, то использовать пробел.
+```
+"  foo".indent(2)        # => "    foo"
+"foo\n\t\tbar".indent(2) # => "\t\tfoo\n\t\t\t\tbar"
+"foo".indent(2, "\t")    # => "\t\tfoo"
+```
+Хотя `indent_string` это обычно один пробел или табуляция, он может быть любой строкой.
+
+Третий аргумент, `indent_empty_lines`, это флажок, указывающий, должен ли быть отступ для пустых строчек. По умолчанию `false`.
+```
+"foo\n\nbar".indent(2)            # => "  foo\n\n  bar"
+"foo\n\nbar".indent(2, nil, true) # => "  foo\n  \n  bar"
+```
+Метод `indent!` добавляет отступ строке.
+
+> Определено в `active_support/core_ext/string/indent.rb`.
+
+#### `Доступ`
+##### `at(position)`
+Возвращает символ строки на позиции `position`:
+```
+"hello".at(0)  # => "h"
+"hello".at(4)  # => "o"
+"hello".at(-1) # => "o"
+"hello".at(10) # => nil
+```
+Определено в `active_support/core_ext/string/access.rb`.
+
+##### `from(position)`
+Возвращает подстроку строки, начинающуюся с позиции `position`:
+```
+"hello".from(0)  # => "hello"
+"hello".from(2)  # => "llo"
+"hello".from(-2) # => "lo"
+"hello".from(10) # => nil
+```
+> Определено в `active_support/core_ext/string/access.rb`.
+
+##### `to(position)`
+
+Возвращает подстроку строки с начала до позиции position:
+```
+"hello".to(0)  # => "h"
+"hello".to(2)  # => "hel"
+"hello".to(-2) # => "hell"
+"hello".to(10) # => "hello"
+```
+Определено в `active_support/core_ext/string/access.rb`.
+
+##### `first(limit = 1)`
+Вызов `str.first(n)` эквивалентен `str.to(n-1)`, если `n > 0`, и возвращает пустую строку для `n == 0`.
+
+> Определено в `active_support/core_ext/string/access.rb`.
+
+##### `last(limit = 1)`
+Вызов `str.last(n)` эквивалентен `str.from(-n)`, если `n > 0`, и возвращает пустую строку для `n == 0`.
+
+> Определено в `active_support/core_ext/string/access.rb`.
+
+#### Изменения слов
+##### `pluralize`
+Метод `pluralize` возвращает множественное число получателя:
+```
+"table".pluralize     # => "tables"
+"ruby".pluralize      # => "rubies"
+"equipment".pluralize # => "equipment"
+```
+Как показывает предыдущий пример, Active Support знает некоторые неправильные множественные числа и неисчисляемые существительные. Встроенные правила могут быть расширены в `config/initializers/inflections.rb`. Этот файл генерируется командой rails и имеет инструкции в комментариях.
+
+`pluralize` также может принимать опциональный параметр count. Если `count == 1`, будет возвращена единственная форма. Для остальных значений count будет возвращена множественная форма:
+```
+"dude".pluralize(0) # => "dudes"
+"dude".pluralize(1) # => "dude"
+"dude".pluralize(2) # => "dudes"
+```
+Active Record использует этот метод для вычисления дефолтного имени таблицы, соответствующей модели:
+```
+# active_record/model_schema.rb
+def undecorated_table_name(class_name = base_class.name)
+  table_name = class_name.to_s.demodulize.underscore
+  pluralize_table_names ? table_name.pluralize : table_name
+end
+```
+> Определено в `active_support/core_ext/string/inflections.rb`.
+
+
+
+
+
+
 ## Безопасность приложений Rails <a name="5.1"></a>
 ### Что такое сессии
 Сессии позволяют приложению поддерживать пользовательское состояние, пока пользователи взаимодействуют с приложением. Например, сессии позволяют пользователю быть аутентифицированным единожды и оставаться таким во всех будущих запросах.
