@@ -135,27 +135,27 @@
 * * 4.2.5 [Разделение очень большого маршрутного файл на несколько небольших:](#4.2.5)
 * * 4.2.6 [Осмотр и тестирование маршрутов](#4.2.6)
 5. [Копаем глубже](#5)
-* 5.1 [Расширения ядра Active Support] (#5.1)
-* * 5.1.1 [Как загрузить расширения ядра] (#5.1.1)
-* * 5.1.2 [Расширения ко всем объектам] (#5.1.2)
-* * 5.1.3 [Расширения для `Module`] (#5.1.3)
-* * 5.1.4 [Расширения для `Class`] (#5.1.4)
-* * 5.1.5 [Расширения для `String`] (#5.1.5)
-* * 5.1.6 [Расширения для `Numeric`] (#5.1.6)
-* * 5.1.7 [Расширения для `Integer`] (#5.1.7)
-* * 5.1.8 [Расширения для `BigDecimal`] (#5.1.8)
-* * 5.1.9 [Расширения для `Enumerable`] (#5.1.9)
-* * 5.1.10 [Расширения для `Array`] (#5.1.10)
-* * 5.1.11 [Расширения для `Hash`] (#5.1.11)
-* * 5.1.12 [Расширения для `Regexp`] (#5.1.12)
-* * 5.1.13 [Расширения для `Range`] (#5.1.13)
-* * 5.1.14 [Расширения для `Date`] (#5.1.14)
-* * 5.1.15 [Расширения для `DateTime`] (#5.1.15)
-* * 5.1.16 [Расширения для `Time`] (#5.1.16)
-* * 5.1.17 [Расширения для `File`] (#5.1.17)
-* * 5.1.18 [Расширения для `Marshal`] (#5.1.18)
-* * 5.1.19 [Расширения для `NameError`] (#5.1.19)
-* * 5.1.20 [Расширения для `LoadError`] (#5.1.20)
+* 5.1 [Расширения ядра Active Support](#5.1)
+* * 5.1.1 [Как загрузить расширения ядра](#5.1.1)
+* * 5.1.2 [Расширения ко всем объектам](#5.1.2)
+* * 5.1.3 [Расширения для `Module`](#5.1.3)
+* * 5.1.4 [Расширения для `Class`](#5.1.4)
+* * 5.1.5 [Расширения для `String`](#5.1.5)
+* * 5.1.6 [Расширения для `Numeric`](#5.1.6)
+* * 5.1.7 [Расширения для `Integer`](#5.1.7)
+* * 5.1.8 [Расширения для `BigDecimal`](#5.1.8)
+* * 5.1.9 [Расширения для `Enumerable`](#5.1.9)
+* * 5.1.10 [Расширения для `Array`](#5.1.10)
+* * 5.1.11 [Расширения для `Hash`](#5.1.11)
+* * 5.1.12 [Расширения для `Regexp`](#5.1.12)
+* * 5.1.13 [Расширения для `Range`](#5.1.13)
+* * 5.1.14 [Расширения для `Date`](#5.1.14)
+* * 5.1.15 [Расширения для `DateTime`](#5.1.15)
+* * 5.1.16 [Расширения для `Time`](#5.1.16)
+* * 5.1.17 [Расширения для `File`](#5.1.17)
+* * 5.1.18 [Расширения для `Marshal`](#5.1.18)
+* * 5.1.19 [Расширения для `NameError`](#5.1.19)
+* * 5.1.20 [Расширения для `LoadError`](#5.1.20)
 
 6. [Расширяем Rails](#6)
 * 6.5 [Rails для API приложений](#6.5)
@@ -12276,6 +12276,1835 @@ end
 ```
 > Определено в `active_support/core_ext/string/inflections.rb`.
 
+##### `singularize`
+Противоположность `pluralize`:
+```
+"tables".singularize    # => "table"
+"rubies".singularize    # => "ruby"
+"equipment".singularize # => "equipment"
+```
+Связи вычисляют имя соответствующего связанного дефолтного класса, используя этот метод:
+```
+# active_record/reflection.rb
+def derive_class_name
+  class_name = name.to_s.camelize
+  class_name = class_name.singularize if collection?
+  class_name
+end
+```
+> Определено в `active_support/core_ext/string/inflections.rb`.
+
+##### `camelize`
+Метод `camelize` возвращает получателя в стиле `CamelCase`:
+```
+"product".camelize    # => "Product"
+"admin_user".camelize # => "AdminUser"
+```
+Как правило, об этом методе думают, как о преобразующем пути в классы Ruby или имена модулей, где слэши разделяют пространства имен:
+```
+"backoffice/session".camelize # => "Backoffice::Session"
+```
+Например, Action Pack использует этот метод для загрузки класса, предоставляющего определенное хранилище сессии:
+```
+# action_controller/metal/session_management.rb
+def session_store=(store)
+  @@session_store = store.is_a?(Symbol) ?
+    ActionDispatch::Session.const_get(store.to_s.camelize) :
+    store
+end
+```
+`camelize` принимает опциональный аргумент, он может быть `:upper` (по умолчанию) или `:lower`. В последнем случае первая буква становится строчной:
+```
+"visual_effect".camelize(:lower) # => "visualEffect"
+```
+Это может быть удобно для вычисления имен методов на языке, который следует такому соглашению, например JavaScript.
+
+> Как правило, можно рассматривать `camelize` как противоположность underscore, хотя бывают случаи, когда это не так: `"SSLError".underscore.camelize` возвращает "SslError". Для поддержки подобных случаев, Active Support позволяет указывать акронимы в `config/initializers/inflections.rb`
+```
+ActiveSupport::Inflector.inflections do |inflect|
+  inflect.acronym 'SSL'
+end
+
+"SSLError".underscore.camelize # => "SSLError"
+```
+`camelize` имеет псевдоним `camelcase`.
+
+> Определено в `active_support/core_ext/string/inflections.rb`.
+
+##### `underscore`
+
+Метод `underscore`, наоборот, от `CamelCase` к путям:
+```
+"Product".underscore   # => "product"
+"AdminUser".underscore # => "admin_user"
+```
+Также преобразует "::" обратно в "/":
+```
+"Backoffice::Session".underscore # => "backoffice/session"
+```
+и понимает строки, начинающиеся с прописной буквы:
+```
+"visualEffect".underscore # => "visual_effect"
+```
+хотя `underscore` не принимает никакие аргументы.
+
+Автозагрузка классов и модулей Rails использует `underscore` для вывода относительного пути без расширения файла, определяющего заданную отсутствующую константу:
+```
+# active_support/dependencies.rb
+def load_missing_constant(from_mod, const_name)
+  ...
+  qualified_name = qualified_name_for from_mod, const_name
+  path_suffix = qualified_name.underscore
+  ...
+end
+```
+> Как правило, рассматривайте `underscore` как противоположность `camelize`, хотя бывают случаи, когда это не так. Например, `"SSLError".underscore.camelize` возвратит `"SslError"`.
+
+> Определено в `active_support/core_ext/string/inflections.rb`.
+
+##### `titleize`
+Метод `titleize` озаглавит слова в получателе:
+```
+"alice in wonderland".titleize # => "Alice In Wonderland"
+"fermat's enigma".titleize     # => "Fermat's Enigma"
+```
+`titleize` имеет псевдоним `titlecase`.
+
+> Определено в `active_support/core_ext/string/inflections.rb`.
+
+##### `dasherize`
+Метод `dasherize` заменяет подчеркивания в получателе дефисами:
+```
+"name".dasherize         # => "name"
+"contact_data".dasherize # => "contact-data"
+```
+Сериализатор XML моделей использует этот метод для форматирования имен узлов:
+```
+# active_model/serializers/xml.rb
+def reformat_name(name)
+  name = name.camelize if camelize?
+  dasherize? ? name.dasherize : name
+end
+```
+> Определено в `active_support/core_ext/string/inflections.rb`.
+
+##### `demodulize`
+Для заданной строки с ограниченным именем константы, `demodulize` возвращает само имя константы, то есть правой части этого:
+```
+"Product".demodulize                        # => "Product"
+"Backoffice::UsersController".demodulize    # => "UsersController"
+"Admin::Hotel::ReservationUtils".demodulize # => "ReservationUtils"
+"::Inflections".demodulize                  # => "Inflections"
+"".demodulize                               # => ""
+```
+
+Active Record, к примеру, использует этот метод для вычисления имени столбца кэширования счетчика:
+```
+# active_record/reflection.rb
+def counter_cache_column
+  if options[:counter_cache] == true
+    "#{active_record.name.demodulize.underscore.pluralize}_count"
+  elsif options[:counter_cache]
+    options[:counter_cache]
+  end
+end
+```
+> Определено в `active_support/core_ext/string/inflections.rb`.
+
+##### `deconstantize`
+У заданной строки с ограниченным выражением ссылки на константу `deconstantize` убирает самый правый сегмент, в основном оставляя имя контейнера константы:
+```
+"Product".deconstantize                        # => ""
+"Backoffice::UsersController".deconstantize    # => "Backoffice"
+"Admin::Hotel::ReservationUtils".deconstantize # => "Admin::Hotel"
+```
+> Определено в `active_support/core_ext/string/inflections.rb`.
+
+##### `parameterize`
+Метод `parameterize` нормализует получателя способом, который может использоваться в красивых URL.
+```
+"John Smith".parameterize # => "john-smith"
+"Kurt Gödel".parameterize # => "kurt-godel"
+```
+Чтобы сохранить регистр строки, установите аргумент `preserve_case` в `true`. По умолчанию `preserve_case` установлен в `false`.
+```
+"John Smith".parameterize(preserve_case: true) # => "John-Smith"
+"Kurt Gödel".parameterize(preserve_case: true) # => "Kurt-Godel"
+```
+Чтобы использовать произвольный разделитель, переопределите аргумент `separator`.
+```
+"John Smith".parameterize(separator: "_") # => "john\_smith"
+"Kurt Gödel".parameterize(separator: "_") # => "kurt\_godel"
+```
+Фактически результирующая строка оборачивается в экземпляр `ActiveSupport::Multibyte::Chars`.
+
+> Определено в `active_support/core_ext/string/inflections.rb`.
+
+##### `tableize`
+Метод `tableize` - это underscore вместе с `pluralize`.
+```
+"Person".tableize      # => "people"
+"Invoice".tableize     # => "invoices"
+"InvoiceLine".tableize # => "invoice_lines"
+```
+Как правило, `tableize` возвращает имя таблицы, соответствующей заданной модели для простых случаев. На самом деле фактическая реализация в Active Record не является прямым `tableize`, так как он также демодулизирует имя класса и проверяет несколько опций, которые могут повлиять на возвращаемую строку.
+
+> Определено в `active_support/core_ext/string/inflections.rb`.
+
+##### `classify`
+Метод `classify` является противоположностью `tableize`. Он выдает имя класса, соответствующего имени таблицы:
+```
+"people".classify        # => "Person"
+"invoices".classify      # => "Invoice"
+"invoice_lines".classify # => "InvoiceLine"
+```
+Метод понимает ограниченные имена таблиц:
+```
+"highrise_production.companies".classify # => "Company"
+```
+Отметьте, что `classify` возвращает имя класса как строку. Можете получить фактический объект класса, вызвав `constantize` на ней, как объяснено далее.
+
+> Определено в `active_support/core_ext/string/inflections.rb`.
+
+##### `constantize`
+Метод `constantize` решает выражение, ссылающееся на константу, в его получателе:
+```
+"Integer".constantize # => Integer
+
+module M
+  X = 1
+end
+"M::X".constantize # => 1
+```
+Если строка вычисляет неизвестную константу, или ее содержимое даже не является валидным именем константы, `constantize` вызывает `NameError`.
+
+Анализ имени константы с помощью `constantize` начинается всегда с верхнего уровня `Object`, даже если нет предшествующих "::".
+```
+X = :in_Object
+module M
+  X = :in_M
+
+  X                 # => :in_M
+  "::X".constantize # => :in_Object
+  "X".constantize   # => :in_Object (!)
+end
+```
+Таким образом, в общем случае это не эквивалентно тому, что Ruby сделал бы в том же месте, когда вычислял настоящую константу.
+
+Тестовые случаи рассыльщика получают тестируемый рассыльщик из имени класса теста, используя `constantize`:
+```
+# action_mailer/test_case.rb
+def determine_default_mailer(name)
+  name.sub(/Test$/, '').constantize
+rescue NameError => e
+  raise NonInferrableMailerError.new(name)
+end
+```
+> Определено в `active_support/core_ext/string/inflections.rb`.
+
+##### `humanize`
+Метод `humanize` настраивает имя атрибута для отображения конечным пользователям.
+
+А в частности выполняет эти преобразования:
+* Применяет правила словоизменения к аргументу.
+* Удаляет любые предшествующие знаки подчеркивания.
+* Убирает суффикс `"_id"`.
+* Заменяет знаки подчеркивания пробелами.
+* Переводит в нижний регистр все слова, кроме акронимов.
+* Озаглавливает первое слово. 
+
+Озаглавливание первого слова может быть выключено с помощью установки опции `:capitalize` в `false` (по умолчанию `true`).
+```
+"name".humanize                         # => "Name"
+"author_id".humanize                    # => "Author"
+"author_id".humanize(capitalize: false) # => "author"
+"comments_count".humanize               # => "Comments count"
+"_id".humanize                          # => "Id"
+```
+Если "SSL" был определен как акроним:
+```
+'ssl_error'.humanize # => "SSL error"
+```
+Метод хелпера `full_messages` использует `humanize` как резервный способ для включения имен атрибутов:
+```
+def full_messages
+  map { |attribute, message| full_message(attribute, message) }
+end
+
+def full_message
+  attr_name = attribute.to_s.tr('.', '_').humanize
+  attr_name = @base.class.human_attribute_name(attribute, default: attr_name)
+end
+```
+> Определено в `active_support/core_ext/string/inflections.rb`.
+
+##### `foreign_key`
+
+Метод `foreign_key` дает имя столбца внешнего ключа из имени класса. Чтобы это сделать он демодулизирует, подчеркивает и добавляет `"_id"`:
+```
+"User".foreign_key           # => "user_id"
+"InvoiceLine".foreign_key    # => "invoice_line_id"
+"Admin::Session".foreign_key # => "session_id"
+```
+Передайте аргумент `false`, если не хотите подчеркивание в `"_id"`:
+```
+"User".foreign_key(false) # => "userid"
+```
+Связи используют этот метод для вывода внешних ключей, например has_one и has_many делают так:
+```
+# active_record/associations.rb
+foreign_key = options[:foreign_key] || reflection.active_record.name.foreign_key
+```
+> Определено в `active_support/core_ext/string/inflections.rb`.
+
+#### Конвертирование
+##### `to_date`, `to_time`, `to_datetime`
+Методы `to_date`, `to_time` и `to_datetime` - в основном удобные обертки для `Date._parse`:
+```
+"2010-07-27".to_date              # => Tue, 27 Jul 2010
+"2010-07-27 23:37:00".to_time     # => 2010-07-27 23:37:00 +0200
+"2010-07-27 23:37:00".to_datetime # => Tue, 27 Jul 2010 23:37:00 +0000
+```
+`to_time` получает опциональный аргумент `:utc` или `:local`, для указания, время какой временной зоны необходимо:
+```
+"2010-07-27 23:42:00".to_time(:utc)   # => 2010-07-27 23:42:00 UTC
+"2010-07-27 23:42:00".to_time(:local) # => 2010-07-27 23:42:00 +0200
+```
+По умолчанию `:local`.
+
+Пожалуйста, обратитесь к документации по `Date._parse` для получения дополнительной информации.
+
+> Все три возвратят `nil` для пустых получателей.
+
+> Определено в `active_support/core_ext/string/conversions.rb`.
+
+### Расширения для `Numeric` <a name="5.1.6"></a>
+#### Байты
+Все числа отвечают на эти методы:
+```
+bytes
+kilobytes
+megabytes
+gigabytes
+terabytes
+petabytes
+exabytes
+```
+Они возвращают соответствующее количество байтов, используя конвертирующий множитель 1024:
+```
+2.kilobytes   # => 2048
+3.megabytes   # => 3145728
+3.5.gigabytes # => 3758096384
+-4.exabytes   # => -4611686018427387904
+```
+Форма в единственном числе является псевдонимом, поэтому можно написать так:
+```
+1.megabyte # => 1048576
+```
+> Определено в `active_support/core_ext/numeric/bytes.rb`.
+
+#### Время
+Включает возможность вычисления и объявления времени, подобно `45.minutes + 2.hours + 4.weeks`.
+
+Эти методы используют `Time#advance` для точного вычисления дат с использованием `from_now`, `ago`, и т. д., а также для сложения или вычитания их результата из объекта `Time`. Например:
+```
+# эквивалент для Time.current.advance(months: 1)
+1.month.from_now
+
+# эквивалент для Time.current.advance(weeks: 2)
+2.weeks.from_now
+
+# эквивалент для Time.current.advance(months: 4, weeks: 5)
+(4.months + 5.weeks).from_now
+```
+Для других длительностей, обратитесь, пожалуйста, к временному расширению для `Integer`.
+
+> Определено в `active_support/core_ext/numeric/time.rb`
+
+#### Форматирование
+Включает форматирование чисел различными способами.
+
+Преобразует число в строковое представление телефонного номера:
+```
+5551234.to_s(:phone)
+# => 555-1234
+1235551234.to_s(:phone)
+# => 123-555-1234
+1235551234.to_s(:phone, area_code: true)
+# => (123) 555-1234
+1235551234.to_s(:phone, delimiter: " ")
+# => 123 555 1234
+1235551234.to_s(:phone, area_code: true, extension: 555)
+# => (123) 555-1234 x 555
+1235551234.to_s(:phone, country_code: 1)
+# => +1-123-555-1234
+```
+Преобразует число в строковое представление валюты:
+```
+1234567890.50.to_s(:currency)                 # => $1,234,567,890.50
+1234567890.506.to_s(:currency)                # => $1,234,567,890.51
+1234567890.506.to_s(:currency, precision: 3)  # => $1,234,567,890.506
+```
+Преобразует число в строковое представление процентов:
+```
+100.to_s(:percentage)
+# => 100.000%
+100.to_s(:percentage, precision: 0)
+# => 100%
+1000.to_s(:percentage, delimiter: '.', separator: ',')
+# => 1.000,000%
+302.24398923423.to_s(:percentage, precision: 5)
+# => 302.24399%
+```
+Преобразует число в строковое представление числа с разделенными разрядами:
+```
+12345678.to_s(:delimited)                     # => 12,345,678
+12345678.05.to_s(:delimited)                  # => 12,345,678.05
+12345678.to_s(:delimited, delimiter: ".")     # => 12.345.678
+12345678.to_s(:delimited, delimiter: ",")     # => 12,345,678
+12345678.05.to_s(:delimited, separator: " ")  # => 12,345,678 05
+```
+Преобразует число в строковое представление числа, округленного с определенной точностью:
+```
+111.2345.to_s(:rounded)                     # => 111.235
+111.2345.to_s(:rounded, precision: 2)       # => 111.23
+13.to_s(:rounded, precision: 5)             # => 13.00000
+389.32314.to_s(:rounded, precision: 0)      # => 389
+111.2345.to_s(:rounded, significant: true)  # => 111
+```
+Преобразует число в строковое представление с удобочитаемым количеством байт:
+```
+123.to_s(:human_size)                  # => 123 Bytes
+1234.to_s(:human_size)                 # => 1.21 KB
+12345.to_s(:human_size)                # => 12.1 KB
+1234567.to_s(:human_size)              # => 1.18 MB
+1234567890.to_s(:human_size)           # => 1.15 GB
+1234567890123.to_s(:human_size)        # => 1.12 TB
+1234567890123456.to_s(:human_size)     # => 1.1 PB
+1234567890123456789.to_s(:human_size)  # => 1.07 EB
+```
+Преобразует число в строковое представление с удобочитаемым числом слов:
+```
+123.to_s(:human)               # => "123"
+1234.to_s(:human)              # => "1.23 Thousand"
+12345.to_s(:human)             # => "12.3 Thousand"
+1234567.to_s(:human)           # => "1.23 Million"
+1234567890.to_s(:human)        # => "1.23 Billion"
+1234567890123.to_s(:human)     # => "1.23 Trillion"
+1234567890123456.to_s(:human)  # => "1.23 Quadrillion"
+```
+> Определено в `active_support/core_ext/numeric/conversions.rb`.
+
+### Расширения для `Integer` <a name="5.1.6"></a>
+#### `multiple_of?`
+Метод `multiple_of?` проверяет, является ли целое число множителем аргумента:
+```
+2.multiple_of?(1) # => true
+1.multiple_of?(2) # => false
+```
+> Определено в `active_support/core_ext/integer/multiple.rb`.
+
+#### `ordinal`
+Метод `ordinal` возвращает суффикс порядковой строки, соответствующей полученному целому числу:
+```
+1.ordinal    # => "st"
+2.ordinal    # => "nd"
+53.ordinal   # => "rd"
+2009.ordinal # => "th"
+-21.ordinal  # => "st"
+-134.ordinal # => "th"
+```
+> Определено в `active_support/core_ext/integer/inflections.rb`.
+
+#### `ordinalize`
+Метод ordinalize возвращает порядковую строку, соответствующую полученному целому числу. Для сравнения отметьте, что метод `ordinal` возвращает только строковый суффикс.
+```
+1.ordinalize    # => "1st"
+2.ordinalize    # => "2nd"
+53.ordinalize   # => "53rd"
+2009.ordinalize # => "2009th"
+-21.ordinalize  # => "-21st"
+-134.ordinalize # => "-134th"
+```
+> Определено в `active_support/core_ext/integer/inflections.rb`.
+
+#### Время
+Включает возможность вычисления и объявления времени, подобно `4.months + 5.years`.
+
+Эти методы используют `Time#advance` для точного вычисления дат с использованием `from_now`, `ago`, и т. д., а также для сложения или вычитания их результата из объекта `Time`. Например:
+```
+# эквивалент для Time.current.advance(months: 1)
+1.month.from_now
+
+# эквивалент для Time.current.advance(years: 2)
+2.years.from_now
+
+# эквивалент для Time.current.advance(months: 4, years: 5)
+(4.months + 5.years).from_now
+```
+Для других длительностей, обратитесь, пожалуйста, к временному расширению для `Numeric`.
+
+> Определено в `active_support/core_ext/integer/time.rb`.
+
+### Расширения для `BigDecimal` <a name="5.1.8"></a>
+#### `to_s`
+Метод to_s предоставляет спецификатор по умолчанию для "F". Это означает, что простой вызов `to_s` приведет к представлению с плавающей запятой вместо инженерной нотации:
+```
+BigDecimal(5.00, 6).to_s       # => "5.0"
+```
+а также поддерживаются эти спецификаторы символа:
+```
+BigDecimal(5.00, 6).to_s(:db)  # => "5.0"
+```
+Инженерная нотация все еще поддерживается:
+```
+BigDecimal(5.00, 6).to_s("e")  # => "0.5E1"
+```
+
+### Расширения для `Enumerable` <a name="5.1.9"></a>
+#### `sum`
+Метод `sum` складывает элементы перечисления:
+```
+[1, 2, 3].sum # => 6
+(1..100).sum  # => 5050
+```
+Сложение применяется только к элементам, откликающимся на `+`:
+```
+[[1, 2], [2, 3], [3, 4]].sum    # => [1, 2, 2, 3, 3, 4]
+%w(foo bar baz).sum             # => "foobarbaz"
+{a: 1, b: 2, c: 3}.sum          # => [:b, 2, :c, 3, :a, 1]
+```
+Сумма пустой коллекции равна нулю по умолчанию, но это может быть настроено:
+```
+[].sum    # => 0
+[].sum(1) # => 1
+```
+Если задан блок, `sum` становится итератором, вкладывающим элементы коллекции и суммирующим возвращаемые значения:
+```
+(1..5).sum {|n| n * 2 } # => 30
+[2, 4, 6, 8, 10].sum    # => 30
+```
+Сумма пустого получателя также может быть настроена в такой форме:
+```
+[].sum(1) {|n| n**3} # => 1
+```
+> Определено в `active_support/core_ext/enumerable.rb`.
+
+#### `index_by`
+Метод `index_by` генерирует хэш с элементами перечисления, индексированными по некоторому ключу.
+
+Он перебирает коллекцию и передает каждый элемент в блок. Значение, возвращенное блоком, будет ключом для элемента:
+```
+invoices.index_by(&:number)
+# => {'2009-032' => <Invoice ...>, '2009-008' => <Invoice ...>, ...}
+```
+Ключи, как правило, должны быть уникальными. Если блок возвратит одно и то же значение для нескольких элементов, для этого ключа не будет построена коллекция. А значение получит последний элемент.
+
+> Определено в `active_support/core_ext/enumerable.rb`.
+
+#### `index_with`
+Метод `index_with` генерирует хэш с элементами перечисления в качестве ключей. Значение является либо переданным по умолчанию, либо возвращенным в блоке.
+```
+%i( title body created_at ).index_with { |attr_name| post.public_send(attr_name) }
+# => { title: "hey", body: "what's up?", … }
+
+WEEKDAYS.index_with([Interval.all_day])
+# => { monday: [ 0, 1440 ], … }
+```
+> Определено в `active_support/core_ext/enumerable.rb`.
+
+#### `many?`
+Метод `many?` это сокращение для `collection.size > 1`:
+```
+<% if pages.many? %>
+  <%= pagination_links %>
+<% end %>
+```
+Если задан опциональный блок, `many?` учитывает только те элементы, которые возвращают `true`:
+```
+@see_more = videos.many? {|video| video.category == params[:category]}
+```
+> Определено в `active_support/core_ext/enumerable.rb`.
+
+#### `exclude?`
+Предикат `exclude?` проверяет, является ли заданный объект не принадлежащим коллекции. Это противоположность встроенного `include?`:
+```
+to_visit << node if visited.exclude?(node)
+```
+> Определено в `active_support/core_ext/enumerable.rb`.
+
+#### `without`
+Метод `without` возвращает копию перечисления без указанных элементов:
+```
+["David", "Rafael", "Aaron", "Todd"].without("Aaron", "Todd") # => ["David", "Rafael"]
+```
+> Определено в `active_support/core_ext/enumerable.rb`.
+
+#### `pluck`
+
+Метод `pluck` возвращает массив на основе заданного ключа:
+```
+[{ name: "David" }, { name: "Rafael" }, { name: "Aaron" }].pluck(:name) # => ["David", "Rafael", "Aaron"]
+```
+> Определено в `active_support/core_ext/enumerable.rb`.
+
+### Расширения для Array <a name="5.1.10"></a>
+#### Доступ
+Active Support расширяет API массивов для облегчения нескольких способов доступа к ним. Например, `to` возвращает подмассив элементов от первого до переданного индекса:
+```
+%w(a b c d).to(2) # => ["a", "b", "c"]
+[].to(7)          # => []
+```
+По аналогии, from возвращает хвост массива, количество элементов которого равно переданному индексу. Если индекс больше длины массива, возвращается пустой массив.
+```
+%w(a b c d).from(2)  # => ["c", "d"]
+%w(a b c d).from(10) # => []
+[].from(0)           # => []
+```
+Методы second, `third`, `fourth` и `fifth` возвращают соответствующие элементы, так же как `second_to_last` и `third_to_last` (`first` и `last` являются встроенными). Благодаря социальной мудрости и всеобщей позитивной конструктивности, `forty_two` также доступен.
+```
+%w(a b c d).third # => "c"
+%w(a b c d).fifth # => nil
+```
+> Определено в `active_support/core_ext/array/access.rb`.
+
+#### Добавление элементов
+##### `prepend`
+
+Этот метод - псевдоним `Array#unshift`.
+```
+%w(a b c d).prepend('e')  # => ["e", "a", "b", "c", "d"]
+[].prepend(10)            # => [10]
+```
+> Определено в `active_support/core_ext/array/prepend_and_append.rb`.
+
+##### `append`
+Этот метод - псевдоним `Array#<<`.
+```
+%w(a b c d).append('e')  # => ["a", "b", "c", "d", "e"]
+[].append([1,2])         # => [[1, 2]]
+```
+> Определено в `active_support/core_ext/array/prepend_and_append.rb`.
+
+#### Извлечение
+Метод `extract!` убирает и возвращает элементы, для которых блок возвращает истинное значение. Если блок не задан, вместо этого возвратиться `Enumerator`.
+```
+numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+odd_numbers = numbers.extract! { |number| number.odd? } # => [1, 3, 5, 7, 9]
+numbers # => [0, 2, 4, 6, 8]
+```
+> Определено в `active_support/core_ext/array/extract.rb`.
+
+#### Извлечение опций
+Когда последний аргумент в вызове метода является хэшем, за исключением, пожалуй, аргумента `&block`, Ruby позволяет опустить скобки:
+```
+User.exists?(email: params[:email])
+```
+Этот синтаксический сахар часто используется в Rails для избежания позиционных аргументов там, где их не слишком много, предлагая вместо них интерфейсы, эмулирующие именованные параметры. В частности, очень характерно использовать такой хэш для опций.
+
+Если метод ожидает различное количество аргументов и использует `*` в своем объявлении, однако хэш опций завершает их и является последним элементом массива аргументов, тогда тип теряет свою роль.
+
+В этих случаях можно задать хэшу опций отличительную трактовку с помощью `extract_options!`. Метод проверяет тип последнего элемента массива. Если это хэш, он вырезает его и возвращает, в противном случае возвращает пустой хэш.
+
+Давайте рассмотрим пример определения макроса контроллера `caches_action`:
+```
+def caches_action(*actions)
+  return unless cache_configured?
+  options = actions.extract_options!
+  ...
+end
+```
+Этот метод получает произвольное число имен экшнов и опциональный хэш опций как последний аргумент. Вызвав `extract_options!`, получаем хэш опций и убираем его из actions простым и явным способом.
+
+> Определено в `active_support/core_ext/array/extract_options.rb`.
+
+#### Конвертирование
+##### `to_sentence`
+Метод `to_sentence` превращает массив в строку, содержащую предложение, в котором перечисляются элементы массива:
+```
+%w().to_sentence                # => ""
+%w(Earth).to_sentence           # => "Earth"
+%w(Earth Wind).to_sentence      # => "Earth and Wind"
+%w(Earth Wind Fire).to_sentence # => "Earth, Wind, and Fire"
+```
+Этот метод принимает три опции:
+* `:two_words_connector`: Что используется для массивов с длиной 2. По умолчанию " and ".
+* `:words_connector`: Что используется для соединения элементов массивов с 3 и более элементами, кроме последних двух. По умолчанию ", ".
+* `:last_word_connector`: Что используется для соединения последних элементов массива из 3 и более элементов. По умолчанию ", and ". 
+
+По умолчанию эти опции могут быть локализованы, их ключи следующие:
+| Опция | Ключ I18n | 
+| `:two_words_connector` | `support.array.two_words_connector` |
+| `:words_connector` | `support.array.words_connector` |
+| `:last_word_connector` | `support.array.last_word_connector` |
+
+> Определено в `active_support/core_ext/array/conversions.rb`.
+
+##### `to_formatted_s`
+Метод `to_formatted_s` по умолчанию работает как `to_s`.
+
+Однако, если массив содержит элементы, откликающиеся на `id`, как аргумент можно передать символ `:db`. Это обычно используется с коллекциями объектов Active Record. Возвращаемые строки следующие:
+```
+[].to_formatted_s(:db)            # => "null"
+[user].to_formatted_s(:db)        # => "8456"
+invoice.lines.to_formatted_s(:db) # => "23,567,556,12"
+```
+Целые числа в примере выше предполагается, что приходят от соответствующих вызовов `id`.
+
+> Определено в `active_support/core_ext/array/conversions.rb`.
+
+##### `to_xml`
+Метод `to_xml` возвращает строку, содержащую представление XML его получателя:
+```
+Contributor.limit(2).order(:rank).to_xml
+# =>
+# <?xml version="1.0" encoding="UTF-8"?>
+# <contributors type="array">
+#   <contributor>
+#     <id type="integer">4356</id>
+#     <name>Jeremy Kemper</name>
+#     <rank type="integer">1</rank>
+#     <url-id>jeremy-kemper</url-id>
+#   </contributor>
+#   <contributor>
+#     <id type="integer">4404</id>
+#     <name>David Heinemeier Hansson</name>
+#     <rank type="integer">2</rank>
+#     <url-id>david-heinemeier-hansson</url-id>
+#   </contributor>
+# </contributors>
+```
+Чтобы это сделать, он посылает `to_xml` к каждому элементу за раз и собирает результаты в корневом узле. Все элементы должны откликаться на `to_xml`, иначе будет вызвано исключение.
+
+По умолчанию имя корневого элемента - это подчеркнутое и `dasherize` имя класса первого элемента во множественном числе, при условии что остальные элементы принадлежат этому типу (проверяется с помощью `is_a?`) и они не являются хэшами. В примере выше это "contributors".
+
+Если есть какой-либо элемент, не принадлежащий типу первого, корневой узел становится "objects":
+```
+[Contributor.first, Commit.first].to_xml
+# =>
+# <?xml version="1.0" encoding="UTF-8"?>
+# <objects type="array">
+#   <object>
+#     <id type="integer">4583</id>
+#     <name>Aaron Batalion</name>
+#     <rank type="integer">53</rank>
+#     <url-id>aaron-batalion</url-id>
+#   </object>
+#   <object>
+#     <author>Joshua Peek</author>
+#     <authored-timestamp type="datetime">2009-09-02T16:44:36Z</authored-timestamp>
+#     <branch>origin/master</branch>
+#     <committed-timestamp type="datetime">2009-09-02T16:44:36Z</committed-timestamp>
+#     <committer>Joshua Peek</committer>
+#     <git-show nil="true"></git-show>
+#     <id type="integer">190316</id>
+#     <imported-from-svn type="boolean">false</imported-from-svn>
+#     <message>Kill AMo observing wrap_with_notifications since ARes was only using it</message>
+#     <sha1>723a47bfb3708f968821bc969a9a3fc873a3ed58</sha1>
+#   </object>
+# </objects>
+```
+Если получатель является массивом хэшей, корневой элемент по умолчанию также "objects":
+```
+[{a: 1, b: 2}, {c: 3}].to_xml
+# =>
+# <?xml version="1.0" encoding="UTF-8"?>
+# <objects type="array">
+#   <object>
+#     <b type="integer">2</b>
+#     <a type="integer">1</a>
+#   </object>
+#   <object>
+#     <c type="integer">3</c>
+#   </object>
+# </objects>
+```
+> Если коллекция пустая, корневой элемент по умолчанию "nil-classes". Пример для понимания, корневой элемент вышеописанного списка вкладчиков будет не "contributors", если коллекция пустая, а "nil-classes". Можно использовать опцию `:root` для обеспечения согласованного корневого элемента.
+
+Имя дочерних узлов по умолчанию является именем корневого узла в единственном числе. В вышеприведенных примерах мы видели "contributor" и "object". Опция `:children` позволяет установить эти имена узлов.
+
+По умолчанию билдер XML является свежим экземпляром `Builder::XmlMarkup`. Можно сконфигурировать свой собственный билдер через опцию `:builder`. Метод также принимает опции, такие как `:dasherize` и ему подобные, они перенаправляются в билдер:
+```
+Contributor.limit(2).order(:rank).to_xml(skip_types: true)
+# =>
+# <?xml version="1.0" encoding="UTF-8"?>
+# <contributors>
+#   <contributor>
+#     <id>4356</id>
+#     <name>Jeremy Kemper</name>
+#     <rank>1</rank>
+#     <url-id>jeremy-kemper</url-id>
+#   </contributor>
+#   <contributor>
+#     <id>4404</id>
+#     <name>David Heinemeier Hansson</name>
+#     <rank>2</rank>
+#     <url-id>david-heinemeier-hansson</url-id>
+#   </contributor>
+# </contributors>
+```
+> Определено в `active_support/core_ext/array/conversions.rb`.
+
+#### Оборачивание
+Метод `Array.wrap` оборачивает свои аргументы в массив, кроме случая когда это уже массив (или массивоподобные).
+
+А именно:
+* Если аргумент `nil`, возвращается пустой массив.
+* В противном случае, если аргумент откликается на `to_ary`, он вызывается, и, если значение `to_ary` не `nil`, оно возвращается.
+* В противном случае, возвращается массив с аргументом в качестве его первого элемента. 
+```
+Array.wrap(nil)       # => []
+Array.wrap([1, 2, 3]) # => [1, 2, 3]
+Array.wrap(0)         # => [0]
+```
+Этот метод похож на `Kernel#Array`, но с некоторыми отличиями:
+* Если аргумент откликается на `to_ary`, метод вызывается. `Kernel#Array` начинает пробовать `to_a`, если вернувшееся значение `nil`, а `Arraw.wrap` сразу возвращает массив с аргументом в качестве единственного элемента.
+* Если возвращаемое значение от `to_ary` и не `nil`, и не объект `Array`, то `Kernel#Array` вызывает исключение, в то время как `Array.wrap` нет, он просто возвращает значение.
+* Он не вызывает `to_a` на аргументе, если аргумент не откликается на `to_ary`, а возвращает массив с аргументом в качестве своего единственного элемента. 
+
+Последний пункт особенно заметен для некоторых перечислений:
+```
+Array.wrap(foo: :bar) # => [{:foo=>:bar}]
+Array(foo: :bar)      # => [[:foo, :bar]]
+```
+Также имеется связанная идиома, использующая оператор расплющивания:
+```
+[*object]
+```
+который в Ruby 1.8 возвращает `[nil]` для `nil`, а в противном случае вызывает `Array(object)`. (Точное поведение в 1.9 пока непонятно)
+
+Таким образом, в этом случае поведение различается для `nil`, а описанные выше различия с `Kernel#Array` применяются к остальным `object`.
+
+> Определено в `active_support/core_ext/array/wrap.rb`.
+
+#### Дублирование
+
+Метод `Array#deep_dup` дублирует себя и все объекты внутри рекурсивно с помощью метода Active Support `Object#deep_dup`. Он работает так же, как `Array#map`, посылая метод `deep_dup` для каждого объекта внутри.
+```
+array = [1, [2, 3]]
+dup = array.deep_dup
+dup[1][2] = 4
+array[1][2] == nil   # => true
+```
+> Определено в `active_support/core_ext/object/deep_dup.rb`.
+
+#### Группировка
+##### `in_groups_of(number, fill_with = nil)`
+Метод `in_groups_of` разделяет массив на последовательные группы определенного размера. Он возвращает массив с группами:
+```
+[1, 2, 3].in_groups_of(2) # => [[1, 2], [3, nil]]
+```
+или выдает их по очереди, если передается блок:
+```
+<% sample.in_groups_of(3) do |a, b, c| %>
+  <tr>
+    <td><%= a %></td>
+    <td><%= b %></td>
+    <td><%= c %></td>
+  </tr>
+<% end %>
+```
+Первый пример показывает, как `in_groups_of` заполняет последнюю группу столькими элементами `nil`, сколько нужно, чтобы получить требуемый размер. Можно изменить это набивочное значение используя второй опциональный аргумент:
+```
+[1, 2, 3].in_groups_of(2, 0) # => [[1, 2], [3, 0]]
+```
+Наконец, можно сказать методу не заполнять последнюю группу, передав `false`:
+```
+[1, 2, 3].in_groups_of(2, false) # => [[1, 2], [3]]
+```
+Как следствие `false` не может использоваться как набивочное значение.
+
+> Определено в `active_support/core_ext/array/grouping.rb`.
+
+##### `in_groups(number, fill_with = nil)`
+Метод `in_groups` разделяет массив на определенное количество групп. Метод возвращает массив с группами:
+```
+%w(1 2 3 4 5 6 7).in_groups(3)
+# => [["1", "2", "3"], ["4", "5", nil], ["6", "7", nil]]
+```
+или выдает их по очереди, если передается блок:
+```
+%w(1 2 3 4 5 6 7).in_groups(3) {|group| p group}
+["1", "2", "3"]
+["4", "5", nil]
+["6", "7", nil]
+```
+Примеры выше показывают, что `in_groups` заполняет некоторые группы с помощью заключительного элемента `nil`, если необходимо. Группа может получить не более одного из этих дополнительных элементов, самый правый, если таковой имеется. И группы, получившие его, будут всегда последние.
+
+Можно изменить это набивочное значение, используя второй опциональный аргумент:
+```
+%w(1 2 3 4 5 6 7).in_groups(3, "0")
+# => [["1", "2", "3"], ["4", "5", "0"], ["6", "7", "0"]]
+```
+Также можно сказать методу не заполнять меньшие группы, передав `false`:
+```
+%w(1 2 3 4 5 6 7).in_groups(3, false)
+# => [["1", "2", "3"], ["4", "5"], ["6", "7"]]
+```
+Как следствие, `false` не может быть набивочным значением.
+
+> Определено в `active_support/core_ext/array/grouping.rb`.
+
+##### `split(value = nil)`
+Метод `split` разделяет массив разделителем и возвращает получившиеся куски.
+
+Если передан блок, разделителями будут те элементы массива, для которых блок возвращает `true`:
+```
+(-5..5).to_a.split { |i| i.multiple_of?(4) }
+# => [[-5], [-3, -2, -1], [1, 2, 3], [5]]
+```
+В противном случае, значение, полученное как аргумент, которое по умолчанию является `nil`, будет разделителем:
+```
+[0, 1, -5, 1, 1, "foo", "bar"].split(1)
+# => [[0], [-5], [], ["foo", "bar"]]
+```
+Отметьте, в предыдущем примере, что последовательные разделители приводят к пустым массивам.
+
+> Определено в `active_support/core_ext/array/grouping.rb`.
+
+### Расширения для `Hash` <a name="5.1.11"></a>
+#### Конверсия
+##### `to_xml`
+Метод `to_xml` возвращает строку, содержащую представление XML его получателя:
+```
+{"foo" => 1, "bar" => 2}.to_xml
+# =>
+# <?xml version="1.0" encoding="UTF-8"?>
+# <hash>
+#   <foo type="integer">1</foo>
+#   <bar type="integer">2</bar>
+# </hash>
+```
+Чтобы это сделать, метод в цикле проходит пары и создает узлы, зависимые от `value`. Для заданной пары `key`, `value`:
+* Если `value` - хэш, происходит рекурсивный вызов с `key` как `:root`.
+* Если `value` - массив, происходит рекурсивный вызов с `key` как `:root`, и `key` в единственном числе как `:children`.
+* Если `value` - вызываемый объект, он должен ожидать один или два аргумента. В зависимости от ситуации, вызываемый объект вызывается с помощью хэша `options` в качестве первого аргумента с `key` как `:root`, и `key` в единственном числе в качестве второго аргумента. Возвращенное значение становится новым узлом.
+* Если `value` откликается на `to_xml`, метод вызывается с `key` как `:root`.
+* В иных случаях, узел с `key` в качестве тега создается со строковым представлением `value` в качестве текстового узла. Если `value` является `nil`, добавляется атрибут "nil", установленный в "true". Кроме случаев, когда существует опция `:skip_types` со значением `true`, добавляется атрибут "type", соответствующий следующему преобразованию: 
+```
+XML_TYPE_NAMES = {
+  "Symbol"     => "symbol",
+  "Integer"    => "integer",
+  "BigDecimal" => "decimal",
+  "Float"      => "float",
+  "TrueClass"  => "boolean",
+  "FalseClass" => "boolean",
+  "Date"       => "date",
+  "DateTime"   => "datetime",
+  "Time"       => "datetime"
+}
+```
+По умолчанию корневой узел является "hash", но это настраивается с помощью опции `:root`.
+
+По умолчанию билдер XML является новым экземпляром `Builder::XmlMarkup`. Можно настроить свой собственный билдер с помощью опции `:builder`. Метод также принимает опции, такие как `:dasherize` и ему подобные, они направляются в билдер.
+
+> Определено в `active_support/core_ext/hash/conversions.rb`.
+
+#### Объединение
+В Ruby имеется встроенный метод `Hash#merge`, который позволяет объединять два хэша:
+```
+{a: 1, b: 1}.merge(a: 0, c: 2)
+# => {:a=>0, :b=>1, :c=>2}
+```
+Active Support определяет еще несколько способов объединения хэшей, которые могут быть полезными.
+
+##### `reverse_merge` и `reverse_merge!`
+В случае коллизии, в `merge` остается ключ в хэше аргумента. Можно компактно предоставить хэш-опцию со значениями по умолчанию с помощью такой идиомы:
+```
+options = {length: 30, omission: "..."}.merge(options)
+```
+Active Support определяет `reverse_merge` в случае, если нужна альтернативная запись:
+```
+options = options.reverse_merge(length: 30, omission: "...")
+```
+И вариант с восклицательным знаком `reverse_merge!`, который выполняет объединение, модифицируя на месте:
+```
+options.reverse_merge!(length: 30, omission: "...")
+```
+> Обратите внимание, что `reverse_merge!` может изменить хэш в вызывающем методе, что может как быть, так и не быть хорошей идеей.
+
+> Определено в `active_support/core_ext/hash/reverse_merge.rb`.
+
+##### `reverse_update`
+Метод `reverse_update` это псевдоним для `reverse_merge!`, описанного выше.
+
+> Отметьте, что у `reverse_update` нет варианта с восклицательным знаком.
+
+> Определено в `active_support/core_ext/hash/reverse_merge.rb`.
+
+##### `deep_merge` и `deep_merge!`
+Как можно было видеть в предыдущем примере, если ключ обнаруживается в обоих хэшах, выбирается значение первого из аргументов.
+
+Active Support определяет `Hash#deep_merge`. В углубленном объединении, если один и тот же ключ обнаруживается в обоих хэшах, и их значения также хэши, то в результирующем хэше будет объединение их значений.
+```
+{a: {b: 1}}.deep_merge(a: {c: 2})
+# => {:a=>{:b=>1, :c=>2}}
+```
+Метод `deep_merge!` выполняет углубленное объединение, модифицируя на месте:
+
+> Определено в `active_support/core_ext/hash/deep_merge.rb`.
+
+#### Глубокое дублирование
+Метод `Hash#deep_dup` дублирует себя, а также все ключи и значения внутри, рекурсивно с помощью метода Active Support `Object#deep_dup`. Он работает так же, как `Enumerator#each_with_object`, посылая метод `deep_dup` в каждую пару внутри.
+```
+hash = { a: 1, b: { c: 2, d: [3, 4] } }
+
+dup = hash.deep_dup
+dup[:b][:e] = 5
+dup[:b][:d] << 5
+
+hash[:b][:e] == nil      # => true
+hash[:b][:d] == [3, 4]   # => true
+```
+> Определено в `active_support/core_ext/object/deep_dup.rb`.
+
+#### Работа с ключами
+##### `except` и `except!`
+Метод `except` возвращает хэш с убранными ключами, содержащимися в перечне аргументов, если они существуют:
+```
+{a: 1, b: 2}.except(:a) # => {:b=>2}
+```
+Если получатель откликается на `convert_key`, метод вызывается на каждом из аргументов. Это позволяет `except` хорошо обращаться с хэшами с индифферентным доступом, например:
+```
+{a: 1}.with_indifferent_access.except(:a)  # => {}
+{a: 1}.with_indifferent_access.except("a") # => {}
+```
+Также имеется вариант с восклицательным знаком `except!`, который убирает ключи в самом получателе.
+
+> Определено в `active_support/core_ext/hash/except.rb`.
+
+##### `transform_keys` и `transform_keys!`
+Метод `transform_keys` принимает блок и возвращает хэш, в котором к каждому из ключей получателя были применены операции в блоке:
+```
+{nil => nil, 1 => 1, a: :a}.transform_keys { |key| key.to_s.upcase }
+# => {"" => nil, "1" => 1, "A" => :a}
+```
+В случае коллизии будет выбрано одно из значений. Выбранное значение не всегда будет одинаковым для одного и того же хэша:
+```
+{"a" => 1, a: 2}.transform_keys { |key| key.to_s.upcase }
+# Результатом будет или
+# => {"A"=>2}
+# или
+# => {"A"=>1}
+```
+Этот метод может помочь, к примеру, при создании специальных преобразований. Например, `stringify_keys` и `symbolize_keys` используют `transform_keys` для выполнения преобразований ключей:
+```
+def stringify_keys
+  transform_keys { |key| key.to_s }
+end
+...
+def symbolize_keys
+  transform_keys { |key| key.to_sym rescue key }
+end
+```
+Также имеется вариант с восклицательным знаком `transform_keys!`, применяющий операции в блоке к ключам в самом получателе.
+
+Кроме этого, можно использовать `deep_transform_keys` и `deep_transform_keys!` для выполнения операции в блоке ко всем ключам в заданном хэше и всех хэшах, вложенных в него. Пример результата:
+```
+{nil => nil, 1 => 1, nested: {a: 3, 5 => 5}}.deep_transform_keys { |key| key.to_s.upcase }
+# => {""=>nil, "1"=>1, "NESTED"=>{"A"=>3, "5"=>5}}
+```
+> Определено в `active_support/core_ext/hash/keys.rb`.
+
+##### `stringify_keys` и `stringify_keys!`
+Метод `stringify_keys` возвращает хэш, в котором ключи получателя преобразованы в строку. Это выполняется с помощью применения к ним `to_s`:
+```
+{nil => nil, 1 => 1, a: :a}.stringify_keys
+# => {"" => nil, "1" => 1, "a" => :a}
+```
+В случае коллизии ключей будет выбрано одно из значений. Выбранное значение не всегда будет одинаковым для одного и того же хэша:
+```
+{"a" => 1, a: 2}.stringify_keys
+# Результатом будет или
+# => {"a"=>2}
+# или
+# => {"a"=>1}
+```
+Метод может быть полезным, к примеру, для простого принятия и символов, и строк как опций. Например, `ActionView::Helpers::FormHelper` определяет:
+```
+def to_check_box_tag(options = {}, checked_value = "1", unchecked_value = "0")
+  options = options.stringify_keys
+  options["type"] = "checkbox"
+  ...
+end
+```
+Вторая строчка может безопасно обратиться к ключу "type" и позволить пользователю передавать или `:type`, или "type".
+
+Также имеется вариант с восклицательным знаком `stringify_keys!`, который преобразует к строке ключи в самом получателе.
+
+Кроме этого, можно использовать `deep_stringify_keys` и `deep_stringify_keys!` для преобразования к строке всех ключей в заданном хэше и всех хэшей, вложенных в него. Пример результата:
+```
+{nil => nil, 1 => 1, nested: {a: 3, 5 => 5}}.deep_stringify_keys
+# => {""=>nil, "1"=>1, "nested"=>{"a"=>3, "5"=>5}}
+```
+> Определено в `active_support/core_ext/hash/keys.rb`
+
+##### `symbolize_keys` и `symbolize_keys!`
+Метод `symbolize_keys` возвращает хэш, в котором ключи получателя преобразованы к символам там, где это возможно. Это выполняется с помощью применения к ним `to_sym`:
+```
+{nil => nil, 1 => 1, "a" => "a"}.symbolize_keys
+# => {nil=>nil, 1=>1, :a=>"a"}
+```
+Отметьте в предыдущем примере, что только один ключ был преобразован к символу.
+
+В случае коллизии ключей будет выбрано одно из значений. Выбранное значение не всегда будет одинаковым для одного и того же хэша:
+```
+{"a" => 1, a: 2}.symbolize_keys
+# Результатом будет или
+# => {:a=>2}
+# или
+# => {:a=>1}
+```
+Метод может быть полезным, к примеру, для простого принятия и символов, и строк как опций. Например, `ActionController::UrlRewriter` определяет
+```
+def rewrite_path(options)
+  options = options.symbolize_keys
+  options.update(options[:params].symbolize_keys) if options[:params]
+  ...
+end
+```
+Вторая строчка может безопасно обратиться к ключу `:params` и позволить пользователю передавать или `:params`, или "params".
+
+Также имеется вариант с восклицательным знаком `symbolize_keys!`, который приводит к символу ключи в самом получателе.
+
+Кроме этого, можно использовать `deep_symbolize_keys` и `deep_symbolize_keys!` для преобразования к символам всех ключей в заданном хэше и всех хэшей, вложенных в него. Пример результата:
+```
+{nil => nil, 1 => 1, "nested" => {"a" => 3, 5 => 5}}.deep_symbolize_keys
+# => {nil=>nil, 1=>1, nested:{a:3, 5=>5}}
+```
+> Определено в `active_support/core_ext/hash/keys.rb`.
+
+##### `to_options` и `to_options!`
+Методы `to_options` и `to_options!` являются псевдонимами `symbolize_keys` и `symbolize_keys!` соответственно.
+
+> Определено в `active_support/core_ext/hash/keys.rb`.
+
+##### `assert_valid_keys`
+Метод `assert_valid_keys` получает определенное число аргументов и проверяет, имеет ли получатель хоть один ключ вне этого белого списка. Если имеет, вызывается `ArgumentError`.
+```
+{a: 1}.assert_valid_keys(:a)  # passes
+{a: 1}.assert_valid_keys("a") # ArgumentError
+```
+Active Record не принимает незнакомые опции при создании связей, к примеру. Он реализует такой контроль через `assert_valid_keys`.
+
+> Определено в `active_support/core_ext/hash/keys.rb`.
+
+#### Нарезка
+В Ruby есть встроенная поддержка для нарезки строк или массивов. Active Support расширяет нарезку на хэши:
+```
+{a: 1, b: 2, c: 3}.slice(:a, :c)
+# => {:a=>1, :c=>3}
+
+{a: 1, b: 2, c: 3}.slice(:b, :X)
+# => {:b=>2} # несуществующие ключи игнорируются
+```
+Если получатель откликается на `convert_key`, ключи нормализуются:
+```
+{a: 1, b: 2}.with_indifferent_access.slice("a")
+# => {:a=>1}
+```
+Нарезка может быть полезной для экранизации хэш-опции с помощью белого списка ключей.
+
+Также есть `slice!`, который выполняет нарезку, модифицируя на месте, и возвращает что было убрано:
+```
+hash = {a: 1, b: 2}
+rest = hash.slice!(:a) # => {:b=>2}
+hash                   # => {:a=>1}
+```
+> Определено в `active_support/core_ext/hash/slice.rb`.
+
+#### Извлечение
+Метод `extract!` убирает и возвращает пары ключ/значение, соответствующие заданным ключам.
+```
+hash = {:a => 1, :b => 2}
+rest = hash.extract!(:a) # => {:a=>1}
+hash                     # => {:b=>2}
+```
+Метод `extract!` возвращает тот же подкласс `Hash`, каким является получатель.
+```
+hash = {a: 1, b: 2}.with_indifferent_access
+rest = hash.extract!(:a).class
+# => ActiveSupport::HashWithIndifferentAccess
+```
+> Определено в `active_support/core_ext/hash/slice.rb`.
+
+#### Индифферентный доступ
+Метод `with_indifferent_access` возвращает `ActiveSupport::HashWithIndifferentAccess` из своего получателя:
+```
+{a: 1}.with_indifferent_access["a"] # => 1
+```
+> Определено в `active_support/core_ext/hash/indifferent_access.rb`.
+
+### Расширения для `Regexp` <a name="5.1.12"></a>
+#### `multiline?`
+Метод `multiline?` говорит, имеет ли регулярное выражение установленный флаг `/m`, то есть соответствует ли точка новым строкам.
+```
+%r{.}.multiline?  # => false
+%r{.}m.multiline? # => true
+
+Regexp.new('.').multiline?                    # => false
+Regexp.new('.', Regexp::MULTILINE).multiline? # => true
+```
+Rails использует этот метод в одном месте, в коде маршрутизации. Регулярные выражения `Multiline` недопустимы для маршрутных требований, и этот флаг облегчает соблюдение этого ограничения.
+```
+def assign_route_options(segments, defaults, requirements)
+  ...
+  if requirement.multiline?
+    raise ArgumentError, "Regexp multiline option not allowed in routing requirements: #{requirement.inspect}"
+  end
+  ...
+end
+```
+> Определено в `active_support/core_ext/regexp.rb`.
+
+### Расширения для Range <a name="5.1.13"></a>
+#### `to_s`
+Active Support расширяет метод `Range#to_s` так, что он понимает опциональный аргумент формата. В настоящий момент имеется только один поддерживаемый формат, отличный от дефолтного, это `:db`:
+```
+(Date.today..Date.tomorrow).to_s
+# => "2009-10-25..2009-10-26"
+
+(Date.today..Date.tomorrow).to_s(:db)
+# => "BETWEEN '2009-10-25' AND '2009-10-26'"
+```
+Как изображено в примере, формат `:db` генерирует SQL условие `BETWEEN`. Это используется Active Record в поддержке значений интервала в условиях.
+
+> Определено в `active_support/core_ext/range/conversions.rb`.
+
+#### `===`, `include?` и `cover?`
+Методы `Range#===`, `Range#include?` и `Range#cover?` сообщают, лежит ли некоторое значение между концами заданного экземпляра:
+```
+(2..3).include?(Math::E) # => true
+```
+Active Support расширяет эти методы так, что аргумент, в свою очередь, может быть другим интервалом. В этом случае проверяется, принадлежат ли концы интервала аргументов самому получателю:
+```
+(1..10) === (3..7)  # => true
+(1..10) === (0..7)  # => false
+(1..10) === (3..11) # => false
+(1...9) === (3..9)  # => false
+
+(1..10).include?(3..7)  # => true
+(1..10).include?(0..7)  # => false
+(1..10).include?(3..11) # => false
+(1...9).include?(3..9)  # => false
+
+(1..10).cover?(3..7)  # => true
+(1..10).cover?(0..7)  # => false
+(1..10).cover?(3..11) # => false
+(1...9).cover?(3..9)  # => false
+```
+> Определено в `active_support/core_ext/range/compare_range.rb`.
+
+#### `overlaps?`
+Метод `Range#overlaps?` говорит, имеют ли два заданных интервала непустое пересечение:
+```
+(1..10).overlaps?(7..11)  # => true
+(1..10).overlaps?(0..7)   # => true
+(1..10).overlaps?(11..27) # => false
+```
+> Определено в `active_support/core_ext/range/overlaps.rb`.
+
+### Расширения для Date <a name="5.1.14"></a>
+#### Вычисления
+> Следующие методы вычисления имеют временную пропасть в октябре 1582 года, когда дней с 5 по 14 (включительно) просто не существовало. Это руководство не документирует свое поведение в те дни для краткости, но достаточно сказать, будет происходит то, что от них ожидается. То есть, `Date.new(1582, 10, 4).tomorrow` возвратит `Date.new(1582, 10, 15)`, и так далее. Пожалуйста, проверьте `test/core_ext/date_ext_test.rb` в тестовом наборе Active Support, чтобы понять ожидаемое поведение.
+
+##### `Date.current`
+Active Support определяет `Date.current` как сегодняшний день в текущей временной зоне. Он похож на `Date.today`, за исключением того, что он учитывает временную зону пользователя, если она определена. Он также определяет `Date.yesterday` и `Date.tomorrow`, и предикаты экземпляра `past?`, `today?`, `future?`, `on_weekday?` и `on_weekend?`, все они зависят от `Date.current`.
+
+> Определено в `active_support/core_ext/date/calculations.rb`.
+
+##### Именованные даты
+###### `beginning_of_week`, `end_of_week`
+Методы `beginning_of_week` и `end_of_week` возвращают даты начала и конца недели соответственно. Предполагается, что неделя начинается с понедельника, но это может быть изменено переданным аргументом, установив локально для треда `Date.beginning_of_week` или `config.beginning_of_week`.
+```
+d = Date.new(2010, 5, 8)     # => Sat, 08 May 2010
+d.beginning_of_week          # => Mon, 03 May 2010
+d.beginning_of_week(:sunday) # => Sun, 02 May 2010
+d.end_of_week                # => Sun, 09 May 2010
+d.end_of_week(:sunday)       # => Sat, 08 May 2010
+```
+У `beginning_of_week` есть псевдоним `at_beginning_of_week`, а у `end_of_week` есть псевдоним `at_end_of_week`.
+
+> Определено в `active_support/core_ext/date_and_time/calculations.rb`.
+
+###### `monday`, `sunday`
+Методы `monday` и `sunday` возвращают даты предыдущего понедельника или следующего воскресенья соответственно.
+```
+d = Date.new(2010, 5, 8)     # => Sat, 08 May 2010
+d.monday                     # => Mon, 03 May 2010
+d.sunday                     # => Sun, 09 May 2010
+
+d = Date.new(2012, 9, 10)    # => Mon, 10 Sep 2012
+d.monday                     # => Mon, 10 Sep 2012
+
+d = Date.new(2012, 9, 16)    # => Sun, 16 Sep 2012
+d.sunday                     # => Sun, 16 Sep 2012
+```
+> Определено в `active_support/core_ext/date_and_time/calculations.rb`.
+
+###### prev_week, next_week
+`next_week` принимает символ с днем недели на английском (по умолчанию локально для треда `Date.beginning_of_week` или `config.beginning_of_week`, или `:monday`) и возвращает дату, соответствующую этому дню на следующей неделе:
+```
+d = Date.new(2010, 5, 9) # => Sun, 09 May 2010
+d.next_week              # => Mon, 10 May 2010
+d.next_week(:saturday)   # => Sat, 15 May 2010
+```
+`prev_week` работает аналогично:
+```
+d.prev_week              # => Mon, 26 Apr 2010
+d.prev_week(:saturday)   # => Sat, 01 May 2010
+d.prev_week(:friday)     # => Fri, 30 Apr 2010
+```
+У `prev_week` есть псевдоним `last_week`.
+
+И `next_week`, и `prev_week` работают так, как нужно, когда установлен `Date.beginning_of_week` или `config.beginning_of_week`.
+
+> Определено в `active_support/core_ext/date_and_time/calculations.rb`.
+
+###### `beginning_of_month`, `end_of_month`
+Методы `beginning_of_month` и `end_of_month` возвращают даты начала и конца месяца:
+```
+d = Date.new(2010, 5, 9) # => Sun, 09 May 2010
+d.beginning_of_month     # => Sat, 01 May 2010
+d.end_of_month           # => Mon, 31 May 2010
+```
+У `beginning_of_month` есть псевдоним `at_beginning_of_month`, а у `end_of_month` есть псевдоним `at_end_of_month`.
+
+> Определено в `active_support/core_ext/date_and_time/calculations.rb`.
+
+###### `beginning_of_quarter`, `end_of_quarter`
+Методы `beginning_of_quarter` и `end_of_quarter` возвращают даты начала и конца квартала календарного года получателя:
+```
+d = Date.new(2010, 5, 9) # => Sun, 09 May 2010
+d.beginning_of_quarter   # => Thu, 01 Apr 2010
+d.end_of_quarter         # => Wed, 30 Jun 2010
+```
+У `beginning_of_quarter` есть псевдоним `at_beginning_of_quarter`, а у `end_of_quarter` есть псевдоним `at_end_of_quarter`.
+
+> Определено в `active_support/core_ext/date_and_time/calculations.rb`.
+
+###### `beginning_of_year`, `end_of_year`
+Методы `beginning_of_year` и `end_of_year` возвращают даты начала и конца года:
+```
+d = Date.new(2010, 5, 9) # => Sun, 09 May 2010
+d.beginning_of_year      # => Fri, 01 Jan 2010
+d.end_of_year            # => Fri, 31 Dec 2010
+```
+У `beginning_of_year` есть псевдоним `at_beginning_of_year`, а у `end_of_year` есть псевдоним `at_end_of_year`.
+
+> Определено в `active_support/core_ext/date_and_time/calculations.rb`.
+
+##### Другие вычисления дат
+###### `years_ago`, `years_since`
+Метод `years_ago` получает число лет и возвращает ту же дату, что и много лет назад:
+```
+date = Date.new(2010, 6, 7)
+date.years_ago(10) # => Wed, 07 Jun 2000
+```
+`years_since` перемещает вперед по времени:
+```
+date = Date.new(2010, 6, 7)
+date.years_since(10) # => Sun, 07 Jun 2020
+```
+Если такая дата не найдена, возвращается последний день соответствующего месяца:
+```
+Date.new(2012, 2, 29).years_ago(3)     # => Sat, 28 Feb 2009
+Date.new(2012, 2, 29).years_since(3)   # => Sat, 28 Feb 2015
+```
+`last_year` это сокращение для #years_ago(1).
+
+> Определено в `active_support/core_ext/date_and_time/calculations.rb`.
+
+###### `months_ago`, `months_since`
+Методы `months_ago` и `months_since` работают аналогично, но для месяцев:
+```
+Date.new(2010, 4, 30).months_ago(2)   # => Sun, 28 Feb 2010
+Date.new(2010, 4, 30).months_since(2) # => Wed, 30 Jun 2010
+```
+Если такой день не существует, возвращается последний день соответствующего месяца:
+```
+Date.new(2010, 4, 30).months_ago(2)    # => Sun, 28 Feb 2010
+Date.new(2009, 12, 31).months_since(2) # => Sun, 28 Feb 2010
+```
+`last_month` это сокращение для `#months_ago(1)`.
+
+> Определено в `active_support/core_ext/date_and_time/calculations.rb`.
+
+###### `weeks_ago`
+Метод `weeks_ago` работает аналогично для недель:
+```
+Date.new(2010, 5, 24).weeks_ago(1)    # => Mon, 17 May 2010
+Date.new(2010, 5, 24).weeks_ago(2)    # => Mon, 10 May 2010
+```
+> Определено в `active_support/core_ext/date_and_time/calculations.rb`.
+
+###### `advance`
+Более обычным способом перейти на другие дни является `advance`. Этот метод получает хэш с ключами `:years`, `:months`, `:weeks`, `:days`, и возвращает дату, передвинутую на столько, сколько указывают существующие ключи:
+```
+date = Date.new(2010, 6, 6)
+date.advance(years: 1, weeks: 2)  # => Mon, 20 Jun 2011
+date.advance(months: 2, days: -2) # => Wed, 04 Aug 2010
+```
+Отметьте в предыдущем примере, что приросты могут быть отрицательными.
+
+Для выполнения вычисления метод сначала приращивает года, затем месяцы, затем недели, и, наконец, дни. Этот порядок важен в концах месяцев. Скажем, к примеру, мы в конце февраля 2010, и мы хотим переместиться на один месяц и один день вперед.
+
+Метод `advance` передвигает сначала на один месяц, и затем на один день, результат такой:
+```
+Date.new(2010, 2, 28).advance(months: 1, days: 1)
+# => Sun, 29 Mar 2010
+```
+Хотя, если бы мы делали по-другому, результат тоже был бы другой:
+```
+Date.new(2010, 2, 28).advance(days: 1).advance(months: 1)
+# => Thu, 01 Apr 2010
+```
+> Определено в `active_support/core_ext/date/calculations.rb`.
+
+##### Изменение компонентов
+Метод `change` позволяет получить новую дату, которая идентична получателю, за исключением заданного года, месяца или дня:
+```
+Date.new(2010, 12, 23).change(year: 2011, month: 11)
+# => Wed, 23 Nov 2011
+```
+Метод не принимает несуществующие даты, если изменение невалидно, вызывается `ArgumentError`:
+```
+Date.new(2010, 1, 31).change(month: 2)
+# => ArgumentError: invalid date
+```
+> Определено в `active_support/core_ext/date/calculations.rb`.
+
+##### Длительности
+Длительности могут добавляться и вычитаться из дат:
+```
+d = Date.current
+# => Mon, 09 Aug 2010
+d + 1.year
+# => Tue, 09 Aug 2011
+d - 3.hours
+# => Sun, 08 Aug 2010 21:00:00 UTC +00:00
+```
+Они переводят в вызовы `since` или `advance`. Например, здесь мы получим правильный переход ко времени календарной реформы:
+```
+Date.new(1582, 10, 4) + 1.day
+# => Fri, 15 Oct 1582
+```
+
+##### Временные метки
+Следующие методы возвращают объект `Time`, если возможно, в противном случае `DateTime`. Если установлено, учитывается временная зона пользователя.
+
+###### `beginning_of_day`, `end_of_day`
+Метод `beginning_of_day` возвращает временную метку для начала дня (00:00:00):
+```
+date = Date.new(2010, 6, 7)
+date.beginning_of_day # => Mon Jun 07 00:00:00 +0200 2010
+```
+Метод `end_of_day` возвращает временную метку для конца дня (23:59:59):
+```
+date = Date.new(2010, 6, 7)
+date.end_of_day # => Mon Jun 07 23:59:59 +0200 2010
+```
+У `beginning_of_day` есть псевдонимы `at_beginning_of_day`, `midnight`, `at_midnight`.
+
+> Определено в `active_support/core_ext/date/calculations.rb`.
+
+###### `beginning_of_hour`, `end_of_hour`
+Метод `beginning_of_hour` возвращает временную метку в начале часа (hh:00:00):
+```
+date = DateTime.new(2010, 6, 7, 19, 55, 25)
+date.beginning_of_hour # => Mon Jun 07 19:00:00 +0200 2010
+```
+Метод `end_of_hour` возвращает временную метку в конце часа (hh:59:59):
+```
+date = DateTime.new(2010, 6, 7, 19, 55, 25)
+date.end_of_hour # => Mon Jun 07 19:59:59 +0200 2010
+```
+У `beginning_of_hour` есть псевдоним `at_beginning_of_hour`.
+
+> Определено в `active_support/core_ext/date_time/calculations.rb`.
+
+###### `beginning_of_minute`, `end_of_minute`
+Метод `beginning_of_minute` возвращает временную метку в начале минуты (hh:mm:00):
+```
+date = DateTime.new(2010, 6, 7, 19, 55, 25)
+date.beginning_of_minute # => Mon Jun 07 19:55:00 +0200 2010
+```
+Метод `end_of_minute` возвращает временную метку в конце минуты (hh:mm:59):
+```
+date = DateTime.new(2010, 6, 7, 19, 55, 25)
+date.end_of_minute # => Mon Jun 07 19:55:59 +0200 2010
+```
+У `beginning_of_minute` есть псевдоним `at_beginning_of_minute`.
+
+> `beginning_of_hour`, `end_of_hour`, `beginning_of_minute` и `end_of_minute` реализованы для `Time` и `DateTime`, но не для `Date`, так как у экземпляра `Date` не имеет смысла спрашивать о начале или окончании часа или минуты.
+
+> Определено в `active_support/core_ext/date_time/calculations.rb`.
+
+###### `ago`, `since`
+Метод `ago` получает количество секунд как аргумент и возвращает временную метку, имеющую столько секунд до полуночи:
+```
+date = Date.current # => Fri, 11 Jun 2010
+date.ago(1)         # => Thu, 10 Jun 2010 23:59:59 EDT -04:00
+```
+Подобным образом `since` двигается вперед:
+```
+date = Date.current # => Fri, 11 Jun 2010
+date.since(1)       # => Fri, 11 Jun 2010 00:00:01 EDT -04:00
+```
+> Определено в `active_support/core_ext/date/calculations.rb`.
+
+### Расширения для `DateTime` <a name="5.1.15"></a>
+> `DateTime` не знает о правилах DST (переходов на летнее время), и поэтому некоторые из этих методов сталкиваются с временной пропастью, когда переход на и с летнего времени имеет место. К примеру, `seconds_since_midnight` может не возвратить настоящее значение для таких дней.
+
+#### Вычисления
+Класс `DateTime` является подклассом `Date`, поэтому загрузив `active_support/core_ext/date/calculations.rb` будут унаследованы эти методы и их псевдонимы, за исключением того, что они будут всегда возвращать дату и время.
+
+Следующие методы переопределены, поэтому не нужно загружать `active_support/core_ext/date/calculations.rb` для них:
+```
+beginning_of_day (midnight, at_midnight, at_beginning_of_day)
+end_of_day
+ago
+since (in)
+```
+С другой стороны, `advance` и `change` также определены, и поэтому поддерживают больше опций, описанных ранее.
+
+Следующие методы реализованы только в `active_support/core_ext/date_time/calculations.rb`, так как они имеют смысл только при использовании с экземпляром `DateTime`:
+```
+beginning_of_hour (at_beginning_of_hour)
+end_of_hour
+```
+##### Именованные `Datetime`
+###### `DateTime.current`
+Active Support определяет `DateTime.current` похожим на `Time.now.to_datetime`, за исключением того, что он учитывает временную зону пользователя, если она определена. Он также определяет `DateTime.yesterday` и `DateTime.tomorrow`, и предикаты экземпляра `past?` и `future?` относительно `DateTime.current`.
+
+> Определено в `active_support/core_ext/date_time/calculations.rb`.
+
+##### Другие расширения
+###### `seconds_since_midnight`
+Метод `seconds_since_midnight` возвращает число секунд, прошедших с полуночи:
+```
+now = DateTime.current     # => Mon, 07 Jun 2010 20:26:36 +0000
+now.seconds_since_midnight # => 73596
+```
+> Определено в `active_support/core_ext/date_time/calculations.rb`.
+
+###### `utc`
+Метод `utc` выдает такую же дату и время получателя, но выраженную в UTC.
+```
+now = DateTime.current # => Mon, 07 Jun 2010 19:27:52 -0400
+now.utc                # => Mon, 07 Jun 2010 23:27:52 +0000
+```
+У этого метода также есть псевдоним `getutc`.
+
+> Определено в `active_support/core_ext/date_time/calculations.rb`.
+
+###### `utc?`
+Предикат `utc?` говорит, имеет ли получатель UTC в качестве своей временной зоны:
+```
+now = DateTime.now # => Mon, 07 Jun 2010 19:30:47 -0400
+now.utc?           # => false
+now.utc.utc?       # => true
+```
+> Определено в `active_support/core_ext/date_time/calculations.rb`.
+
+###### `advance`
+Более обычным способом перейти к другим дате и времени является `advance`. Этот метод получает хэш с ключами `:years`, `:months`, `:weeks`, `:days`, `:hours`, `:minutes` и `:seconds`, и возвращает дату и время, передвинутые на столько, на сколько указывают существующие ключи.
+```
+d = DateTime.current
+# => Thu, 05 Aug 2010 11:33:31 +0000
+d.advance(years: 1, months: 1, days: 1, hours: 1, minutes: 1, seconds: 1)
+# => Tue, 06 Sep 2011 12:34:32 +0000
+```
+Этот метод сначала вычисляет дату назначения, передавая `:years`, `:months`, `:weeks` и `:days` в `Date#advance`, описанный ранее. После этого, он корректирует время, вызвав `since` с количеством секунд, на которое нужно передвинуть. Этот порядок обоснован, другой порядок мог бы дать другие дату и время для некоторых временных пропастей. Используем пример в `Date#advance`, и расширим его, показав обоснованность порядка, применимого к единицам измерения времени.
+
+Если сначала передвинуть единицы измерения даты (относительный порядок вычисления, показанный ранее), а затем единицы измерения времени, мы получим для примера следующее вычисление:
+```
+d = DateTime.new(2010, 2, 28, 23, 59, 59)
+# => Sun, 28 Feb 2010 23:59:59 +0000
+d.advance(months: 1, seconds: 1)
+# => Mon, 29 Mar 2010 00:00:00 +0000
+```
+но если мы вычисляем обратным способом, результат будет иным:
+```
+d.advance(seconds: 1).advance(months: 1)
+# => Thu, 01 Apr 2010 00:00:00 +0000
+```
+Поскольку `DateTime` не поддерживает DST (переход на летнее время), можно получить несуществующий момент времени без каких-либо предупреждений или сообщений об ошибке.
+
+> Определено в `active_support/core_ext/date_time/calculations.rb`.
+
+##### Изменение компонентов
+Метод `change` позволяет получить новые дату и время, которая идентична получателю, за исключением заданных опций, включающих `:year`, `:month`, `:day`, `:hour`, `:min`, `:sec`, `:offset`, `:start`:
+```
+now = DateTime.current
+# => Tue, 08 Jun 2010 01:56:22 +0000
+now.change(year: 2011, offset: Rational(-6, 24))
+# => Wed, 08 Jun 2011 01:56:22 +0600
+```
+Если часы обнуляются, то минуты и секунды тоже (если у них не заданы значения):
+```
+now.change(hour: 0)
+# => Tue, 08 Jun 2010 00:00:00 +0000
+```
+Аналогично, если минуты обнуляются, то секунды тоже (если у них не задано значение):
+```
+now.change(min: 0)
+# => Tue, 08 Jun 2010 01:00:00 +0000
+```
+Этот метод не принимает несуществующие даты, если изменение невалидно, вызывается `ArgumentError`:
+```
+DateTime.current.change(month: 2, day: 30)Изменение компонентов
+```
+Метод `change` позволяет получить новые дату и время, которая идентична получателю, за исключением заданных опций, включающих `:year`, `:month`, `:day`, `:hour`, `:min`, `:sec`, `:offset`, `:start`:
+```
+now = DateTime.current
+# => Tue, 08 Jun 2010 01:56:22 +0000
+now.change(year: 2011, offset: Rational(-6, 24))
+# => Wed, 08 Jun 2011 01:56:22 +0600
+```
+Если часы обнуляются, то минуты и секунды тоже (если у них не заданы значения):
+```
+now.change(hour: 0)
+# => Tue, 08 Jun 2010 00:00:00 +0000
+```
+Аналогично, если минуты обнуляются, то секунды тоже (если у них не задано значение):
+```
+now.change(min: 0)
+# => Tue, 08 Jun 2010 01:00:00 +0000
+```
+Этот метод не принимает несуществующие даты, если изменение невалидно, вызывается `ArgumentError`:
+```
+DateTime.current.change(month: 2, day: 30)
+# => ArgumentError: invalid date
+```
+> Определено в `active_support/core_ext/date_time/calculations.rb`.
+
+##### Длительности
+Длительности могут добавляться и вычитаться из даты и времени:
+```
+now = DateTime.current
+# => Mon, 09 Aug 2010 23:15:17 +0000
+now + 1.year
+# => Tue, 09 Aug 2011 23:15:17 +0000
+now - 1.week
+# => Mon, 02 Aug 2010 23:15:17 +0000
+```
+Они переводят в вызовы `since` или `advance`. Например, здесь мы получим правильный переход ко времени календарной реформы:
+```
+DateTime.new(1582, 10, 4, 23) + 1.hour
+# => Fri, 15 Oct 1582 00:00:00 +0000
+```
+
+### Расширения для `Time` <a name="5.1.16"></a>
+#### Вычисления
+Это аналоги. Обратитесь к их документации выше, но примите во внимание следующие различия:
+* `change` принимает дополнительную опцию `:usec`.
+* `Time` понимает летнее время (DST), поэтому вы получите правильные вычисления времени как тут: 
+```
+Time.zone_default
+# => #<ActiveSupport::TimeZone:0x7f73654d4f38 @utc_offset=nil, @name="Madrid", ...>
+
+# В Барселоне, 2010/03/28 02:00 +0100 становится 2010/03/28 03:00 +0200 благодаря переходу на летнее время.
+t = Time.local(2010, 3, 28, 1, 59, 59)
+# => Sun Mar 28 01:59:59 +0100 2010
+t.advance(seconds: 1)
+# => Sun Mar 28 03:00:00 +0200 2010
+```
+Если `since` или `ago` переходят на время, которое не может быть выражено с помощью `Time`, вместо него возвращается объект `DateTime`.
+
+##### `Time.current`
+Active Support определяет `Time.current` как сегодняшний день в текущей временной зоне. Он похож на `Time.now`, за исключением того, что он учитывает временную зону пользователя, если она определена. Он также определяет предикаты экземпляра `past?`, `today?` и `future?`, все они относительны к `Time.current`.
+
+При осуществлении сравнения `Time` с использованием методов, учитывающих временную зону пользователя, убедитесь, что используете `Time.current` вместо `Time.now`. Есть случаи, когда временная зона пользователя может быть в будущем по сравнению с временной зоной системы, в которой по умолчанию используется `Time.now`. Это означает, что `Time.now.to_date` может быть равным `Date.yesterday`.
+
+> Определено в `active_support/core_ext/time/calculations.rb`.
+
+##### `all_day`, `all_week`, `all_month`, `all_quarter` и `all_year`
+Метод `all_day` возвращает интервал, представляющий целый день для текущего времени.
+```
+now = Time.current
+# => Mon, 09 Aug 2010 23:20:05 UTC +00:00
+now.all_day
+# => Mon, 09 Aug 2010 00:00:00 UTC +00:00..Mon, 09 Aug 2010 23:59:59 UTC +00:00
+```
+Аналогично `all_week`, `all_month`, `all_quarter` и `all_year` служат целям генерации временных интервалов.
+```
+now = Time.current
+# => Mon, 09 Aug 2010 23:20:05 UTC +00:00
+now.all_week
+# => Mon, 09 Aug 2010 00:00:00 UTC +00:00..Sun, 15 Aug 2010 23:59:59 UTC +00:00
+now.all_week(:sunday)
+# => Sun, 16 Sep 2012 00:00:00 UTC +00:00..Sat, 22 Sep 2012 23:59:59 UTC +00:00
+now.all_month
+# => Sat, 01 Aug 2010 00:00:00 UTC +00:00..Tue, 31 Aug 2010 23:59:59 UTC +00:00
+now.all_quarter
+# => Thu, 01 Jul 2010 00:00:00 UTC +00:00..Thu, 30 Sep 2010 23:59:59 UTC +00:00
+now.all_year
+# => Fri, 01 Jan 2010 00:00:00 UTC +00:00..Fri, 31 Dec 2010 23:59:59 UTC +00:00
+```
+> Определено в `active_support/core_ext/date_and_time/calculations.rb`.
+
+##### `prev_day`, `next_day`
+В Ruby 1.9 `prev_day` и `next_day` возвращают дату для последнего или следующего дня:
+```
+d = Date.new(2010, 5, 8) # => Sat, 08 May 2010
+d.prev_day               # => Fri, 07 May 2010
+d.next_day               # => Sun, 09 May 2010
+```
+> Определено в `active_support/core_ext/date_and_time/calculations.rb`.
+
+##### `prev_month`, `next_month`
+В Ruby 1.9 `prev_month` и `next_month` возвращают дату с тем же днем в предыдущем или следующем месяце:
+```
+d = Date.new(2010, 5, 8) # => Sat, 08 May 2010
+d.prev_month             # => Thu, 08 Apr 2010
+d.next_month             # => Tue, 08 Jun 2010
+```
+Если такой день не существует, возвращается последний день соответствующего месяца:
+```
+Date.new(2000, 5, 31).prev_month # => Sun, 30 Apr 2000
+Date.new(2000, 3, 31).prev_month # => Tue, 29 Feb 2000
+Date.new(2000, 5, 31).next_month # => Fri, 30 Jun 2000
+Date.new(2000, 1, 31).next_month # => Tue, 29 Feb 2000
+```
+> Определено в `active_support/core_ext/date_and_time/calculations.rb`.
+
+##### `prev_year`, `next_year`
+В Ruby 1.9 `prev_year` и `next_year` возвращают дату с тем же днем/месяцем в предыдущем или следующем году:
+```
+d = Date.new(2010, 5, 8) # => Sat, 08 May 2010
+d.prev_year              # => Fri, 08 May 2009
+d.next_year              # => Sun, 08 May 2011
+```
+Если датой является 29 февраля високосного года, возвратится 28-е:
+```
+d = Date.new(2000, 2, 29) # => Tue, 29 Feb 2000
+d.prev_year               # => Sun, 28 Feb 1999
+d.next_year               # => Wed, 28 Feb 2001
+```
+> Определено в `active_support/core_ext/date_and_time/calculations.rb`.
+
+##### `prev_quarter`, `next_quarter`
+`prev_quarter` и `next_quarter` возвращают дату с тем же днем в предыдущем или следующем квартале:
+```
+t = Time.local(2010, 5, 8) # => 2010-05-08 00:00:00 0300
+t.prev_quarter             # => 2010-02-08 00:00:00 0200
+t.next_quarter             # => 2010-08-08 00:00:00 0300
+```
+Если такой день не существует, возвращается последний день соответствующего месяца:
+```
+Time.local(2000, 7, 31).prev_quarter  # => 2000-04-30 00:00:00 0300
+Time.local(2000, 5, 31).prev_quarter  # => 2000-02-29 00:00:00 0200
+Time.local(2000, 10, 31).prev_quarter # => 2000-07-31 00:00:00 0300
+Time.local(2000, 11, 31).next_quarter # => 2001-03-01 00:00:00 0200
+```
+`prev_quarter` имеет псевдоним `last_quarter`.
+
+> Определено в `active_support/core_ext/date_and_time/calculations.rb`.
+
+#### Конструкторы `Time`
+Active Support определяет `Time.current` как `Time.zone.now`, если у пользователя определена временная зона, а иначе `Time.now`:
+```
+Time.zone_default
+# => #<ActiveSupport::TimeZone:0x7f73654d4f38 @utc_offset=nil, @name="Madrid", ...>
+Time.current
+# => Fri, 06 Aug 2010 17:11:58 CEST +02:00
+```
+Как и у `DateTime`, предикаты `past?` и `future?` выполняются относительно `Time.current`.
+
+Если время, подлежащее конструированию лежит за пределами интервала, поддерживаемого `Time` на запущенной платформе, `usecs` отбрасываются и вместо этого возвращается объект `DateTime`.
+
+##### Длительности
+Длительности могут быть добавлены и вычтены из объектов времени:
+```
+now = Time.current
+# => Mon, 09 Aug 2010 23:20:05 UTC +00:00
+now + 1.year
+# => Tue, 09 Aug 2011 23:21:11 UTC +00:00
+now - 1.week
+# => Mon, 02 Aug 2010 23:21:11 UTC +00:00
+```
+Они переводят в вызовы `since` или `advance`. Например, здесь мы получим правильный переход ко времени календарной реформы:
+```
+Time.utc(1582, 10, 3) + 5.days
+# => Mon Oct 18 00:00:00 UTC 1582
+```
+
+### Расширения для File <a name="5.1.17"></a>
+#### `atomic_write`
+С помощью метода класса `File.atomic_write` можно записать в файл способом, предотвращающим от просмотра недописанного содержимого.
+
+Имя файла передается как аргумент, и в метод вкладываются обработчики файла, открытого для записи. Как только блок выполняется, `atomic_write` закрывает файл и завершает свое задание.
+
+Например, Action Pack использует этот метод для записи файлов кэша ассетов, таких как `all.css`:
+```
+File.atomic_write(joined_asset_path) do |cache|
+  cache.write(join_asset_file_contents(asset_paths))
+end
+```
+Для выполнения этого `atomic_write` создает временный файл. Фактически код в блоке пишет в этот файл. При выполнении временный файл переименовывается, что является атомарной операцией в системах POSIX. Если целевой файл существует, `atomic_write` перезаписывает его и сохраняет владельцев и права доступа. Однако в некоторых случаях `atomic_write` не может изменить владельца или права доступа на файл, эта ошибка отлавливается и пропускается, позволяя файловой системе убедиться, что файл доступен для необходимых манипуляций.
+
+Благодаря операции `chmod`, выполняемой `atomic_write`, если у целевого файла установлен ACL, то этот ACL будет пересчитан/модифицирован.
+
+Отметьте, что с помощью `atomic_write` нельзя дописывать.
+
+Вспомогательный файл записывается в стандартной директории для временных файлов, но можно передать эту директорию как второй аргумент.
+
+> Определено в `active_support/core_ext/file/atomic.rb`.
+
+### Расширения для `Marshal` <a name="5.1.18"></a>
+#### `load`
+Active Support добавляет поддержку постоянной автозагрузки для `load`.
+
+Например, хранилище кэша файлов десериализует следующим образом:
+```
+File.open(file_name) { |f| Marshal.load(f) }
+```
+Если закэшированные данные обращаются к константе, которая неизвестна в данный момент, включается механизм автозагрузки и, если он успешен, перевыполняется десериализация.
+
+> Если аргумент `IO`, необходимо, чтобы он отвечал на `rewind`, чтобы быть способным на повтор. Обычные файлы отвечают на `rewind`.
+
+> Определено в `active_support/core_ext/marshal.rb`.
+
+### Расширения для `NameError` <a name="5.1.19"></a>
+Active Support добавляет `missing_name?` к `NameError`, который проверяет было ли исключение вызвано в связи с тем, что имя было передано как аргумент.
+
+Имя может быть задано как символ или строка. Символ проверяется как простое имя константы, строка - как полностью ограниченное имя константы.
+
+Символ может представлять полностью ограниченное имя константы как :`"ActiveRecord::Base"`, такое поведение для символов определено для удобства, а не потому, что такое возможно технически.
+
+К примеру, когда вызывается экшн `ArticlesController`, Rails пытается оптимистично использовать `ArticlesHelper`. Это нормально, когда не существует модуля хелпера, поэтому если вызывается исключение для этого имени константы, оно должно молчать. Но в случае, если `articles_helper.rb` вызывает `NameError` благодаря неизвестной константе, оно должно быть перевызвано. Метод `missing_name?` предоставляет способ проведения различия в этих двух случаях:
+```
+def default_helper_module!
+  module_name = name.sub(/Controller$/, '')
+  module_path = module_name.underscore
+  helper module_path
+rescue LoadError => e
+  raise e unless e.is_missing? "helpers/#{module_path}_helper"
+rescue NameError => e
+  raise e unless e.missing_name? "#{module_name}Helper"
+end
+```
+> Определено в `active_support/core_ext/name_error.rb`.
+
+### Расширения для `LoadError` <a name="5.1.20"></a>
+Active Support добавляет `is_missing?` к `LoadError`.
+
+Для заданного имени пути `is_missing?` проверяет, будет ли вызвано исключение из-за определенного файла (за исключением файлов с расширением ".rb").
+
+Например, когда вызывается экшн `ArticlesController`, Rails пытается загрузить `articles_helper.rb`, но этот файл может не существовать. Это нормально, модуль хелпера не обязателен, поэтому Rails умалчивает ошибку загрузки. Но может быть случай, что модуль хелпера существует, и в свою очередь требует другую библиотеку, которая отсутствует. В этом случае Rails должен вызвать исключение. Метод `is_missing?` предоставляет способ проведения различия в этих двух случаях:
+```
+def default_helper_module!
+  module_name = name.sub(/Controller$/, '')
+  module_path = module_name.underscore
+  helper module_path
+rescue LoadError => e
+  raise e unless e.is_missing? "helpers/#{module_path}_helper"
+rescue NameError => e
+  raise e unless e.missing_name? "#{module_name}Helper"
+end
+```
+> Определено в `active_support/core_ext/load_error.rb`.
 
 
 
