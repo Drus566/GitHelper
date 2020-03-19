@@ -2,6 +2,30 @@
 
 5. [Копаем глубже](#5)
 * 5.5 [Основы Action Mailbox](#5.5)
+* * 5.5.1 [Что такое Action Mailbox?](#5.5.1)
+* * 5.5.2 [Настройка](#5.5.2)
+* * 5.5.3 [Создание задания](#5.5.3)
+* * 5.5.4 [Выполнение заданий](#5.5.4)
+* * 5.5.5 [Очереди](#5.5.5)
+* * 5.5.6 [Колбэки](#5.5.6)
+* * 5.5.7 [Action Mailer](#5.5.7)
+* * 5.5.8 [Интернационализация](#5.5.8)
+* * 5.5.9 [Поддерживаемые типы аргументов](#5.5.9)
+* * 5.5.10 [Исключения](#5.5.10)
+* * 5.5.10 [Тестирование заданий](#5.5.11)
+* 5.6 [Основы Active Job](#5.6)
+* * 5.6.1 [Что такое Active Job?](#5.6.1)
+* * 5.6.2 [Назначение Active Job](#5.6.2)
+* * 5.6.3 [Создание задания](#5.6.3)
+* * 5.6.4 [Выполнение заданий](#5.6.4)
+* * 5.6.5 [Очереди](#5.6.5)
+* * 5.6.6 [Колбэки](#5.6.6)
+* * 5.6.7 [Action Mailer](#5.6.7)
+* * 5.6.8 [Интернационализация](#5.6.8)
+* * 5.6.9 [Поддерживаемые типы аргументов](#5.6.9)
+* * 5.6.10 [Исключения](#5.6.10)
+* * 5.6.11 [Тестирование заданий](#5.6.11)
+
 
 # Копаем глубже <a name="5"></a>
 ## Основы Action Mailbox <a name="5.5"></a>
@@ -253,3 +277,365 @@ class ForwardsMailboxTest < ActionMailbox::TestCase
   end
 end
 ```
+
+
+## Основы Active Job <a name="5.6"></a>
+Это руководство даст вам все, что нужно, чтобы начать создавать, ставить в очередь и выполнять фоновые задания.
+
+### Что такое Active Job? <a name="5.6.1"></a>
+Active Job - это фреймворк для объявления заданий и их запуска на разных бэкендах для очередей. Эти задания могут быть чем угодно, от регулярно запланированных чисток до списаний с карт или рассылок. В общем, всем, что может быть выделено в небольшие работающие части и запускаться параллельно.
+
+### Назначение Active Job <a name="5.6.2"></a>
+
+Главным является то, что он обеспечивает, что у всех приложений на Rails имеется встроенная инфраструктура для заданий. Затем у нас могут появиться особенности фреймворка или других гемов, созданных на его основе, позволяющие не заботится об отличиях в API между различными исполнителями заданий, такими как Delayed Job и Resque. Подбор бэкенда для очередей станет более оперативной работой. Вы сможете переключаться между ними без необходимости переписывать свои задания.
+
+> По умолчанию, Rails поставляется с асинхронной реализацией очереди, запускающей задания с помощью пула тредов внутри процесса. Задания будут запущены асинхронно, но любые задания в очереди будут потеряны при перезагрузке.
+
+### Создание задания <a name="5.6.3"></a>
+#### Создание задания
+Active Job предоставляет генератор Rails для создания заданий. Следующая команда создаст задание в `app/jobs` (а также тестовый случай в `test/jobs`):
+```
+$ bin/rails generate job guests_cleanup
+invoke  test_unit
+create    test/jobs/guests_cleanup_job_test.rb
+create  app/jobs/guests_cleanup_job.rb
+```
+Также можно создать задание, которое будет запущено в определенной очереди:
+```
+$ bin/rails generate job guests_cleanup --queue urgent
+```
+Если не хотите использовать генератор, можно создать файл очереди в `app/jobs`, просто убедитесь, что он наследуется от `ApplicationJob`.
+
+Вот как выглядит задание:
+```
+class GuestsCleanupJob < ApplicationJob
+  queue_as :default
+
+  def perform(*guests)
+    # Сделать что-нибудь позже
+  end
+end
+```
+Отметьте, что можно определить perform с любым количеством аргументов.
+
+#### Помещение задания в очередь
+
+Поместить задание в очередь можно так:
+```
+# Помещенное в очередь задание выполнится, как только освободится система очередей.
+GuestsCleanupJob.perform_later guest
+```
+```
+# Помещенное в очередь задание выполнится завтра в полдень.
+GuestsCleanupJob.set(wait_until: Date.tomorrow.noon).perform_later(guest)
+```
+```
+# Помещенное в очередь задание выполнится через неделю.
+GuestsCleanupJob.set(wait: 1.week).perform_later(guest)
+```
+```
+# `perform_now` и `perform_later` вызывают `perform`, поэтому
+# можно передать столько аргументов, сколько определено в последнем.
+GuestsCleanupJob.perform_later(guest1, guest2, filter: 'some_filter')
+```
+Вот и все!
+
+### Выполнение заданий <a name="5.6.4"></a>
+
+Чтобы поместить задание в очередь и выполнить его в production, необходимо настроить бэкенд для очереди, т.е. нужно решить, какую стороннюю библиотеку для очереди Rails будет использовать. Rails предоставляет только внутрипроцессную систему очереди, хранящую задания в памяти. Если процесс упадет, или машина будет перезагружена, тогда в асинхронном бэкенде по умолчанию все оставшиеся задания будут потеряны. Это может быть нормальным для маленьких приложений или некритичных заданий, но для большей части серьезных приложений нужно подобрать персистентный бэкенд.
+
+#### Бэкенды
+
+У Active Job есть встроенные адаптеры для различных бэкендов очередей (Sidekiq, Resque, Delayed Job и другие). Чтобы получить актуальный список адаптеров, обратитесь к документации API по ActiveJob::QueueAdapters.
+
+#### Настройка бэкенда
+
+Настроить бэкенд — это просто:
+```
+# config/application.rb
+module YourApp
+  class Application < Rails::Application
+    # Убедитесь, что гем адаптера добавлен в Gemfile, и что выполнены
+    # инструкции по установке и развертыванию адаптера.
+    config.active_job.queue_adapter = :sidekiq
+  end
+end
+```
+Также можно настроить бэкенд для отдельного задания.
+```
+class GuestsCleanupJob < ApplicationJob
+  self.queue_adapter = :resque
+  #....
+end
+
+# Теперь ваше задание будет использовать `resque` в качестве адаптера бэкенда очереди,
+# переопределяя тот, что был настроен в `config.active_job.queue_adapter`.
+```
+
+#### Запуск бэкенда
+
+Поскольку задания запускаются параллельно с вашим Rails приложением, большинство библиотек для работы с очередями требуют запуска специфичного для библиотеки сервиса очередей (помимо старта Rails приложения) для обработки заданий. Обратитесь к документации по библиотеке за инструкциями по запуску бэкенда очереди.
+
+Вот неполный список документации:
+* Sidekiq
+* Resque
+* Sneakers
+* Sucker Punch
+* Queue Classic
+* Delayed Job
+* Que 
+
+
+### Очереди <a name="5.6.5"></a>
+
+Большая часть адаптеров поддерживает несколько очередей. С помощью Active Job можно запланировать, что задание будет выполнено в определенной очереди:
+```
+class GuestsCleanupJob < ApplicationJob
+  queue_as :low_priority
+  #....
+end
+```
+Можно задать префикс для имени очереди для всех заданий с помощью `config.active_job.queue_name_prefix` в `application.rb`:
+```
+# config/application.rb
+module YourApp
+  class Application < Rails::Application
+    config.active_job.queue_name_prefix = Rails.env
+  end
+end
+
+# app/jobs/guests_cleanup_job.rb
+class GuestsCleanupJob < ApplicationJob
+  queue_as :low_priority
+  #....
+end
+
+# Теперь ваше задание запустится в очереди production_low_priority в среде
+# production и в staging_low_priority в среде staging
+```
+Также можно настроить префикс на уровне задания.
+```
+class GuestsCleanupJob < ApplicationJob
+  queue_as :low_priority
+  self.queue_name_prefix = nil
+  #....
+end
+
+# Теперь очередь задания не будет иметь префикс, переопределяя то,
+# что было настроено в `config.active_job.queue_name_prefix`.
+```
+Разделитель префикса имени очереди по умолчанию `'_'`. Его можно изменить, установив `config.active_job.queue_name_delimiter` в `application.rb`:
+```
+# config/application.rb
+module YourApp
+  class Application < Rails::Application
+    config.active_job.queue_name_prefix = Rails.env
+    config.active_job.queue_name_delimiter = '.'
+  end
+end
+
+# app/jobs/guests_cleanup_job.rb
+class GuestsCleanupJob < ApplicationJob
+  queue_as :low_priority
+  #....
+end
+
+# Теперь ваше задание запустится в очереди production.low_priority в среде
+# production и в staging.low_priority в среде staging
+```
+Если хотите больше контроля, в какой очереди задание будет запущено, можно передать опцию `:queue` в `#set`:
+```
+MyJob.set(queue: :another_queue).perform_later(record)
+```
+Чтобы контролировать очередь на уровне задания, можно передать блок в `#queue_as`. Блок будет выполнен в контексте задания (таким образом, у вас будет доступ к `self.arguments`), и он должен вернуть имя очереди:
+```
+class ProcessVideoJob < ApplicationJob
+  queue_as do
+    video = self.arguments.first
+    if video.owner.premium?
+      :premium_videojobs
+    else
+      :videojobs
+    end
+  end
+
+  def perform(video)
+    # Делаем обработку видео
+  end
+end
+
+ProcessVideoJob.perform_later(Video.last)
+```
+> Убедитесь, что ваш бэкенд для очередей "слушает" имя вашей очереди. Для некоторых бэкендов необходимо указать очереди, которые нужно слушать.
+
+### Колбэки <a name="5.6.6"></a>
+
+Active Job предоставляет хуки для включения логики на протяжение жизненного цикла задания. Подобно другим колбэкам в Rails, можно реализовывать колбэки как обычные методы и использовать макрос-метод класса, чтобы зарегистрировать их в качестве колбэков:
+```
+class GuestsCleanupJob < ApplicationJob
+  queue_as :default
+
+  around_perform :around_cleanup
+
+  def perform
+    # Отложенное задание
+  end
+
+  private
+    def around_cleanup
+      # Делаем что-то перед perform
+      yield
+      # Делаем что-то после perform
+    end
+end
+```
+Макрос-методы класса также могут принимать блок. Рассмотрите возможность использования этого макроса, если код внутри блока настолько короток, что он помещается в одну строчку. Например, можно отправлять показатели для каждого помещенного в очередь задания.
+```
+class ApplicationJob < ActiveJob::Base
+  before_enqueue { |job| $statsd.increment "#{job.class.name.underscore}.enqueue" }
+end
+```
+#### Доступные колбэки
+* `before_enqueue`
+* `around_enqueue`
+* `after_enqueue`
+* `before_perform`
+* `around_perform`
+* `after_perform`
+
+### Action Mailer <a name="5.6.7"></a>
+
+Одним из обычных заданий в современном веб-приложении является рассылка писем за пределами цикла запроса-отклика, чтобы пользователь не ждал. Active Job интегрируется с Action Mailer, поэтому рассылать письма асинхронно очень просто:
+```
+# Если хотите отправить письмо сейчас, используйте #deliver_now
+UserMailer.welcome(@user).deliver_now
+
+# Если хотите отправить письмо через Active Job, используйте #deliver_later
+UserMailer.welcome(@user).deliver_later
+```
+> Использование асинхронной очереди из задач Rake (например, для отправки электронной почты с помощью `.deliver_later`), как правило, не будет работать, потому что Rake, вероятно, завершится, в результате чего пул тредов внутри процесса будет удален до того, как любой/все из `.deliver_later` писем будут обработаны. Чтобы избежать этой проблемы, используйте `.deliver_now` или запустите персистентную очередь в development режиме.
+
+### Интернационализация <a name="5.6.8"></a>
+
+Каждое задание использует настройку `I18n.locale` при создании. Это полезно, если вы отправляете письма асинхронно:
+```
+I18n.locale = :eo
+
+UserMailer.welcome(@user).deliver_later # Email будет локализован в Эсперанто.
+```
+
+### Поддерживаемые типы аргументов <a name="5.6.9"></a>
+
+ActiveJob по умолчанию поддерживает следующие типы аргументов:
+* Базовые типы (`NilClass`, `String`, `Integer`, `Float`, `BigDecimal`, `TrueClass`, `FalseClass`)
+* `Symbol`
+* `Date`
+* `Time`
+* `DateTime`
+* `ActiveSupport::TimeWithZone`
+* `ActiveSupport::Duration`
+* `Hash` (Ключи должны быть типа `String` или `Symbol`)
+* `ActiveSupport::HashWithIndifferentAccess`
+* `Array` 
+
+#### GlobalID
+
+Active Job поддерживает GlobalID для параметров. Это позволяет передавать объекты Active Record в ваши задания, вместо пар класс/id, которые нужно затем десериализовать вручную. Раньше задания выглядели так:
+```
+class TrashableCleanupJob < ApplicationJob
+  def perform(trashable_class, trashable_id, depth)
+    trashable = trashable_class.constantize.find(trashable_id)
+    trashable.cleanup(depth)
+  end
+end
+```
+Теперь можно просто сделать так:
+```
+class TrashableCleanupJob < ApplicationJob
+  def perform(trashable, depth)
+    trashable.cleanup(depth)
+  end
+end
+```
+Это работает с любым классом, в который подмешан `GlobalID::Identification`, который по умолчанию был подмешан в классы Active Record.
+
+#### Сериализаторы
+
+Можно расширить список поддерживаемых типов для аргументов. Для этого необходимо определить свой собственный сериализатор.
+```
+class MoneySerializer < ActiveJob::Serializers::ObjectSerializer
+  # Проверяем, должен ли argument быть сериализован с использованием этого сериализатора.
+  def serialize?(argument)
+    argument.is_a? Money
+  end
+
+  # Преобразование объекта к более простому представителю, используя поддерживаемые типы объектов.
+  # Рекомендуемым представителем является хэш с определенным ключом. Ключи могут быть только базового типа.
+  # Необходимо вызвать `super`, чтобы добавить собственный тип сериализатора в хэш.
+  def serialize(money)
+    super(
+      "amount" => money.amount,
+      "currency" => money.currency
+    )
+  end
+
+  # Преобразование сериализованного значения в надлежащий объект.
+  def deserialize(hash)
+    Money.new(hash["amount"], hash["currency"])
+  end
+end
+```
+и добавить этот сериализатор в список:
+```
+Rails.application.config.active_job.custom_serializers << MoneySerializer
+```
+
+### Исключения <a name="5.6.10"></a>
+
+Active Job предоставляет способ отлова исключений, возникших во время выполнения задания:
+
+```
+class GuestsCleanupJob < ApplicationJob
+  queue_as :default
+
+  rescue_from(ActiveRecord::RecordNotFound) do |exception|
+    # Сделать что-то с этим исключением
+  end
+
+  def perform
+    # Отложенное задание
+  end
+end
+```
+Если исключение не будет поймано внутри задания, например, как показано выше, тогда задание будет помечено как "неудачное".
+
+
+#### Повторная отправка или отмена неудачных заданий
+
+Неудачное задание не будет повторено, если не настроено обратное.
+
+Также возможно повторить отправку или отменить задание, если во время выполнения было вызвано исключение.
+
+Например:
+```
+class RemoteServiceJob < ApplicationJob
+  retry_on CustomAppException # по умолчанию, ожидание: 3 сек., попыток: 5
+
+  discard_on ActiveJob::DeserializationError
+
+  def perform(*args)
+    # Может быть вызвано CustomAppException или ActiveJob::DeserializationError
+  end
+end
+```
+Более подробную информацию смотрите в документации по API для `ActiveJob::Exceptions`.
+
+#### Десериализация
+
+GlobalID позволяет сериализовать полностью объекты Active Record, переданные в `#perform`.
+
+Если переданная запись была удалена после того, как задание было помещено в очередь, но до того, как метод `#perform` был вызван, Active Job вызовет исключение `ActiveJob::DeserializationError`.
+
+### Тестирование заданий <a name="5.6.11"></a>
+
+Вы можете найти подробные инструкции о том, как тестировать ваши задания в руководстве Тестирование приложений на Rails.
