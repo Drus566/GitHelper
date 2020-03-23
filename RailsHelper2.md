@@ -652,3 +652,579 @@ GlobalID позволяет сериализовать полностью объ
 ### Тестирование заданий <a name="5.6.11"></a>
 
 Вы можете найти подробные инструкции о том, как тестировать ваши задания в руководстве Тестирование приложений на Rails.
+
+
+## Обзор Active Storage <a name="5.7"></a>
+
+### Что такое Active Storage? <a name="5.7.1"></a>
+Active Storage облегчает загрузку файлов в облачные хранилища данных, такие как Amazon S3, Google Cloud Storage или Microsoft Azure Storage, и прикрепляет эти файлы к объектам Active Record. Он поставляется с локальным на основе диска сервисом для разработки и тестирования, и поддерживает отзеркаливание (mirroring) файлов в подчиненных сервисах для резервного копирования и миграций.
+
+Используя Active Storage приложение может преобразовывать изображения при загрузке с помощью ImageMagick, генерировать изображение файла, который не является изображением, такого, например, как PDF или видео, и извлекать метаданные из произвольных файлов.
+
+### Установка <a name="5.7.2"></a>
+Active Storage использует две таблицы в базе данных приложения названные `active_storage_blobs` и `active_storage_attachments`. После создания нового приложения (или апгрейда приложения до Rails 5.2), нужно запустить `rails active_storage:install`, чтобы сгенерировать миграцию, которая создает эти таблицы. Используйте `rails db:migrate` для запуска миграций.
+
+> `active_storage_attachments` это полиморфная соединительная таблица, хранящая имена ваших классов моделей. Если имена ваших классов моделей меняются, необходимо запустить миграцию на эту таблицу, чтобы обновить соответствующие `record_type` новым именем вашего класса модели.
+
+> Если используются UUID вместо чисел в качестве первичного ключа моделей, необходимо изменить тип столбца `record_id` для таблицы `active_storage_attachments` в соответствующей сгенерированной миграции.
+
+Сервисы Active Storage объявляются в `config/storage.yml`. Для каждого сервиса, используемого в приложении, стоит указать имя и необходимую конфигурацию. В нижеприведенном примере объявляются три сервиса с именами `local`, `test` и `amazon`:
+```
+local:
+  service: Disk
+  root: <%= Rails.root.join("storage") %>
+
+test:
+  service: Disk
+  root: <%= Rails.root.join("tmp/storage") %>
+
+amazon:
+  service: S3
+  access_key_id: ""
+  secret_access_key: ""
+  bucket: ""
+  region: "" # e.g. 'us-east-1'
+```
+Скажите Active Storage, какой сервис использовать, установив `Rails.application.config.active_storage.service`. Поскольку каждая среда, скорее всего, использует различные сервисы, рекомендуется делать это отдельно для каждого окружения. Чтобы использовать сервис диска из предыдущего примера в среде разработки, нужно добавить следующее в `config/environments/development.rb`:
+```
+# Хранение файлов локально.
+config.active_storage.service = :local
+```
+Чтобы использовать сервис Amazon S3 в production, необходимо добавить следующее в `config/environments/production.rb`:
+```
+# Хранить файлы в Amazon S3.
+config.active_storage.service = :amazon
+```
+Чтобы использовать тестовый сервис при тестировании, добавьте следующее в `config/environments/test.rb`:
+```
+# Хранить загруженные файлы в локальной файловой системе во временной директории.
+config.active_storage.service = :test
+```
+
+#### Сервис `Disk`
+
+Объявление сервиса `Disk` в `config/storage.yml`:
+```
+local:
+  service: Disk
+  root: <%= Rails.root.join("storage") %>
+```
+
+#### Сервис `Amazon S3`
+
+Объявление сервиса `S3` в `config/storage.yml`:
+```
+amazon:
+  service: S3
+  access_key_id: ""
+  secret_access_key: ""
+  region: ""
+  bucket: ""
+```
+Кроме того, необходимо добавить гем `aws-sdk-s3` в Gemfile:
+```
+gem "aws-sdk-s3", require: false
+```
+> Основные особенности Active Storage требуют следующих прав доступа: `s3:ListBucket`, `s3:PutObject`, `s3:GetObject` и `s3:DeleteObject`. Если есть дополнительные опции загрузки, сконфигурированные также как и настройка ACL, тогда могут потребоваться дополнительные права доступа.
+
+> Если необходимо использовать переменные среды, стандартные файлы конфигурации SDK, профили, профили экземпляров IAM или роли задач, можно опустить ключи `access_key_id`, `secret_access_key` и `region` в приведенном выше примере. Сервис Amazon S3 поддерживает все опции аутентификации, описанные в документации AWS SDK.
+
+#### Сервис Microsoft Azure Storage
+
+Объявление сервиса Azure Storage в `config/storage.yml`:
+```
+azure:
+  service: AzureStorage
+  storage_account_name: ""
+  storage_access_key: ""
+  container: ""
+```
+Кроме того, необходимо добавить гем `azure-storage` в Gemfile:
+```
+gem "azure-storage", require: false
+```
+
+#### Сервис Google Cloud Storage
+
+Объявление сервиса Google Cloud Storage в `config/storage.yml`:
+```
+google:
+  service: GCS
+  credentials: <%= Rails.root.join("path/to/keyfile.json") %>
+  project: ""
+  bucket: ""
+```
+Опционально можно предоставить хэш `credentials` вместо пути к `keyfile`:
+```
+google:
+  service: GCS
+  credentials:
+    type: "service_account"
+    project_id: ""
+    private_key_id: <%= Rails.application.credentials.dig(:gcs, :private_key_id) %>
+    private_key: <%= Rails.application.credentials.dig(:gcs, :private_key).dump %>
+    client_email: ""
+    client_id: ""
+    auth_uri: "https://accounts.google.com/o/oauth2/auth"
+    token_uri: "https://accounts.google.com/o/oauth2/token"
+    auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs"
+    client_x509_cert_url: ""
+  project: ""
+  bucket: ""
+```
+Кроме того, необходимо добавить гем `google-cloud-storage` в Gemfile:
+```
+gem "google-cloud-storage", "~> 1.11", require: false
+```
+
+#### Сервис Mirror
+
+Существует возможность синхронизировать несколько сервисов, определив сервис отзеркаливания. Сервис отзеркаливания копирует загрузки и удаляет из двух или более подчиненных сервисов.
+
+Сервисы отзеркаливания предназначены для временного использования в течение миграции между сервисами в `production`. Можно начать отзеркаливание в новый сервис, скопировав существующие файлы со старого сервиса на новый, а затем полностью перейти на новый сервис.
+
+Отзеркаливание не атомарно. Возможно, что загрузка будет успешной на основном сервисе и неуспешной на любом из подчиненных сервисов. Перед окончательным переходом на новый сервис, убедитесь, что все файлы были скопированы.
+
+Определим каждый из требуемых сервисов, как описано выше. Будем ссылаться на них с помощью сервиса отзеркаливания.
+```
+s3_west_coast:
+  service: S3
+  access_key_id: ""
+  secret_access_key: ""
+  region: ""
+  bucket: ""
+
+s3_east_coast:
+  service: S3
+  access_key_id: ""
+  secret_access_key: ""
+  region: ""
+  bucket: ""
+
+production:
+  service: Mirror
+  primary: s3_east_coast
+  mirrors:
+    - s3_west_coast
+```
+Хотя все вторичные сервисы получают загрузки, скачивания всегда обрабатываются основным сервисом.
+
+Сервисы отзеркаливания совместимы с прямой загрузкой. Новые файлы загружаются непосредственно в основной сервис. Когда напрямую загруженный файл прикрепляется к записи, в очередь помещается фоновое задание для копирования его во вторичные сервисы.
+
+### Прикрепление файлов к записям <a name="5.7.3"></a>
+#### `has_one_attached`
+Макрос `has_one_attached` устанавливает сопоставление (mapping) один-к-одному между записями и файлами. Каждая запись может содержать один прикрепленный файл.
+
+Например, предположим, что в приложении имеется модель `User`. Если необходимо, чтобы у каждого пользователя был аватар, нужно определить модель `User` следующим образом:
+```
+class User < ApplicationRecord
+  has_one_attached :avatar
+end
+```
+Далее можно создать пользователя с аватаром:
+```
+<%= form.file_field :avatar %>
+
+class SignupController < ApplicationController
+  def create
+    user = User.create!(user_params)
+    session[:user_id] = user.id
+    redirect_to root_path
+  end
+
+  private
+    def user_params
+      params.require(:user).permit(:email_address, :password, :avatar)
+    end
+end
+```
+Вызов `avatar.attach` прикрепляет аватар к существующему пользователю:
+```
+user.avatar.attach(params[:avatar])
+```
+Вызов `avatar.attached?` определяет, есть ли у конкретного пользователя аватар:
+```
+user.avatar.attached?
+```
+
+#### `has_many_attached`
+
+Макрос `has_many_attached` устанавливает отношение один-ко-многим между записями и файлами. У каждой записи может быть много прикрепленных файлов.
+
+Например, предположим, что в приложении имеется модель `Message`. Если необходимо, чтобы у каждого сообщения было много изображений, нужно определить модель Message следующим образом:
+```
+class Message < ApplicationRecord
+  has_many_attached :images
+end
+```
+Далее можно создать сообщение с изображениями:
+```
+class MessagesController < ApplicationController
+  def create
+    message = Message.create!(message_params)
+    redirect_to message
+  end
+
+  private
+    def message_params
+      params.require(:message).permit(:title, :content, images: [])
+    end
+end
+```
+Вызов `images.attach` добавляет новые изображения к существующему сообщению:
+```
+@message.images.attach(params[:images])
+```
+Вызов `images.attached?` определяет, есть ли у конкретного сообщения какие-либо изображения:
+```
+@message.images.attached?
+```
+
+#### Прикрепление объектов `File/IO`
+
+Иногда необходимо прикрепить файл, который не поступает через HTTP-запрос. Например, может понадобиться прикрепить файл, сгенерированный на диске, или загрузить файл из введенного пользователем URL. Также можно захотеть прикрепить файл фикстур в тесте модели. Чтобы сделать это, предоставьте хэш, содержащий как минимум открытый объект IO и имя файла:
+```
+@message.image.attach(io: File.open('/path/to/file'), filename: 'file.pdf')
+```
+Когда это возможно, предоставьте тип содержимого. Active Storage пытается определить тип содержимого файла по его данным. Если он не может этого сделать, он возвращает тип содержимого, которое предоставляется.
+```
+@message.image.attach(io: File.open('/path/to/file'), filename: 'file.pdf', content_type: 'application/pdf')
+```
+Можно пропустить определение типа содержимого из данных, передав `identify: false` вместе с `content_type`.
+```
+@message.image.attach(
+  io: File.open('/path/to/file'),
+  filename: 'file.pdf',
+  content_type: 'application/pdf',
+  identify: false
+)
+```
+Если не предоставляется тип содержимого и `Active Storage` не может автоматически определить тип содержимого файла, по умолчанию используется `application/octet-stream`.
+
+### Удаление прикрепленных файлов <a name=5.7.4"></a>
+
+Чтобы удалить прикрепленный файл из модели, необходимо вызвать purge на нем. Удаление может быть выполнено в фоновом режиме, если приложение использует `Active Job`. `purge` удаляет `blob` и файл из сервиса хранения.
+```
+# Синхронно уничтожить аватар и фактические файлы ресурса.
+user.avatar.purge
+
+# Асинхронно уничтожить связанные модели и фактические файлы ресурса с помощью Active Job.
+user.avatar.purge_later
+```
+
+### Создание ссылок на файлы <a name="5.7.5"></a>
+
+Сгенерируем постоянный URL для `blob`, который указывает на приложение. При доступе возвращается редирект на фактическую конечную точку сервиса. Эта косвенная адресация (indirection) отделяет публичный URL от фактического, и позволяет, например, отзеркаливание прикрепленных файлов в разных сервисах для высокой доступности. Перенаправление имеет HTTP-прекращение 5 минут.
+```
+url_for(user.avatar)
+```
+Чтобы создать ссылку для скачивания, необходимо использовать хелпер `rails_blob_{path|url}`. С помощью этого хелпера можно установить `disposition`.
+```
+rails_blob_path(user.avatar, disposition: "attachment")
+```
+Для предотвращения атак XSS, ActiveStorage принудительно устанавливает заголовок `Content-Disposition` как "attachment" для некоторых типов файлов. Чтобы изменить это поведение, смотрите доступные конфигурационные опции в Конфигурирование приложений на Rails.
+
+Если необходимо создать ссылку из-за пределов содержимого контроллера/вьюхи (фоновые задания, задания Cron и т.д.), можно получить доступ к `rails_blob_path` следующим образом:
+```
+Rails.application.routes.url_helpers.rails_blob_path(user.avatar, only_path: true)
+```
+### Скачивание файлов <a name="5.7.6"></a>
+
+Иногда необходимо обработать `blob` после его загрузки - например, чтобы преобразовать его в другой формат. Используйте `ActiveStorage::Blob#download` для чтения двоичных данных `blob` в памяти:
+```
+binary = user.avatar.download
+```
+Возможно, может понадобиться загрузить `blob` в файл на диске, чтобы внешняя программа могла работать с ним (например, антивирусный сканер или транскодер медиа). Используйте `ActiveStorage::Blob#open`, чтобы загрузить `blob` в `tempfile` на диске:
+```
+message.video.open do |file|
+  system '/path/to/virus/scanner', file.path
+  # ...
+end
+```
+
+### Преобразование изображений <a name="5.7.7"></a>
+
+Чтобы создать вариацию изображения, следует вызвать `variant` на `Blob`. Также возможно передать любое преобразование методу, поддерживаемому процессором. Процессором по умолчанию является `MiniMagick`, но также можно использовать `Vips`.
+
+Чтобы включить варианты, добавьте гем image_processing в Gemfile:
+```
+gem 'image_processing', '~> 1.2'
+```
+Когда браузер обращается к URL варианта, Active Storage будет лениво преобразовывать исходный `blob` в указанный формат и перенаправлять его к новому месту расположения сервиса.
+```
+<%= image_tag user.avatar.variant(resize_to_limit: [100, 100]) %>
+```
+Чтобы переключиться на процессор `Vips`, необходимо добавить следующее в `config/application.rb`:
+```
+# Используйте Vips для обработки вариантов.
+config.active_storage.variant_processor = :vips
+```
+
+### Предварительный просмотр файлов <a name="5.7.8"></a>
+
+Некоторые файлы, который не являются изображениями, могут быть предварительно просмотрены: то есть они могут быть представлены как изображения. Например, видеофайл можно предварительно просмотреть, извлекая его первый кадр. Из коробки `Active Storage` поддерживает предварительный просмотр видео и документов PDF.
+```
+<ul>
+  <% @message.files.each do |file| %>
+    <li>
+      <%= image_tag file.preview(resize_to_limit: [100, 100]) %>
+    </li>
+  <% end %>
+</ul>
+```
+Для извлечения превью необходимы сторонние приложения, `FFmpeg` для видео и `muPDF` для `PDF`, а на `macOS` также `XQuartz` и `Poppler`. Эти библиотеки не предоставляются Rails. Необходимо установить их самостоятельно, чтобы использовать встроенные средства предварительного просмотра. Перед установкой и использованием стороннего программного обеспечения убедитесь, что понимаете последствия лицензирования этого.
+
+
+### Прямые загрузки <a name="5.7.9"></a>
+
+Active Storage со встроенной библиотекой JavaScript поддерживает загрузку прямо от клиента в облако.
+
+#### Установка прямой загрузки
+* Включите `activestorage.js` в комплект JavaScript приложения.
+
+Используя файлопровод:
+```
+//= require activestorage
+```
+Используя пакет npm:
+```
+require("@rails/activestorage").start()
+```
+* Установите в true значение `direct_upload` поля для загрузки файла.
+```
+<%= form.file_field :attachments, multiple: true, direct_upload: true %>
+```
+* Вот и все! Загрузки начинаются с момента отправки формы.
+
+#### События JavaScript прямой загрузки
+```
+Имя события 	Цель события 	Данные события (event.detail) 	Описание
+direct-uploads:start 	<form> 	None 	Форма, содержащая файлы для прямой загрузки полей была отправлена.
+direct-upload:initialize 	<input> 	{id, file} 	Вызывается для каждого файла после отправки формы.
+direct-upload:start 	<input> 	{id, file} 	Прямая загрузка начинается.
+direct-upload:before-blob-request 	<input> 	{id, file, xhr} 	Перед тем, как сделать запрос к приложению для прямой загрузки метаданных.
+direct-upload:before-storage-request 	<input> 	{id, file, xhr} 	Перед тем, как сделать запрос на сохранение файла.
+direct-upload:progress 	<input> 	{id, file, progress} 	По мере прогресса сохранения файлов.
+direct-upload:error 	<input> 	{id, file, error} 	Произошла ошибка. Отображается alert, если это событие не отменено.
+direct-upload:end 	<input> 	{id, file} 	Прямая загрузка закончилась.
+direct-uploads:end 	<form> 	None 	Все прямые загрузки закончились.
+```
+
+#### Пример
+
+Также можно использовать эти события, чтобы показывать ход загрузки.
+```
+direct-uploads
+```
+Чтобы показать загруженные файлы в форме:
+```
+// direct_uploads.js
+
+addEventListener("direct-upload:initialize", event => {
+  const { target, detail } = event
+  const { id, file } = detail
+  target.insertAdjacentHTML("beforebegin", `
+    <div id="direct-upload-${id}" class="direct-upload direct-upload--pending">
+      <div id="direct-upload-progress-${id}" class="direct-upload__progress" style="width: 0%"></div>
+      <span class="direct-upload__filename">${file.name}</span>
+    </div>
+  `)
+})
+
+addEventListener("direct-upload:start", event => {
+  const { id } = event.detail
+  const element = document.getElementById(`direct-upload-${id}`)
+  element.classList.remove("direct-upload--pending")
+})
+
+addEventListener("direct-upload:progress", event => {
+  const { id, progress } = event.detail
+  const progressElement = document.getElementById(`direct-upload-progress-${id}`)
+  progressElement.style.width = `${progress}%`
+})
+
+addEventListener("direct-upload:error", event => {
+  event.preventDefault()
+  const { id, error } = event.detail
+  const element = document.getElementById(`direct-upload-${id}`)
+  element.classList.add("direct-upload--error")
+  element.setAttribute("title", error)
+})
+
+addEventListener("direct-upload:end", event => {
+  const { id } = event.detail
+  const element = document.getElementById(`direct-upload-${id}`)
+  element.classList.add("direct-upload--complete")
+})
+```
+Добавление стилей:
+```
+/* direct_uploads.css */
+
+.direct-upload {
+  display: inline-block;
+  position: relative;
+  padding: 2px 4px;
+  margin: 0 3px 3px 0;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 13px;
+}
+
+.direct-upload--pending {
+  opacity: 0.6;
+}
+
+.direct-upload__progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  opacity: 0.2;
+  background: #0076ff;
+  transition: width 120ms ease-out, opacity 60ms 60ms ease-in;
+  transform: translate3d(0, 0, 0);
+}
+
+.direct-upload--complete .direct-upload__progress {
+  opacity: 0.4;
+}
+
+.direct-upload--error {
+  border-color: red;
+}
+
+input[type=file][data-direct-upload-url][disabled] {
+  display: none;
+}
+```
+
+
+#### Интеграция с библиотеками или фреймворками
+
+Если необходимо использовать особенность прямой загрузки из фреймворка JavaScript или необходима интеграция собственных решений перетаскивания (drag-and-drop), для этой цели можно использовать класс DirectUpload. Получив файл из выбранной библиотеки, создайте экземпляр DirectUpload и вызовите его метод create. Этот метод принимает колбэк для вызова, когда загрузка завершена.
+```
+import { DirectUpload } from "@rails/activestorage"
+
+const input = document.querySelector('input[type=file]')
+
+// Привязка к сбрасыванию (drop) файла - используйте ondrop на родительском элементе или используйте библиотеку, такую как Dropzone
+const onDrop = (event) => {
+  event.preventDefault()
+  const files = event.dataTransfer.files;
+  Array.from(files).forEach(file => uploadFile(file))
+}
+
+// Привязка к обычному выбору файла
+input.addEventListener('change', (event) => {
+  Array.from(input.files).forEach(file => uploadFile(file))
+  // можно очистить выбранные файлы из поля ввода
+  input.value = null
+})
+
+const uploadFile = (file) => {
+  // форма требует file_field direct_upload: true, который предоставляет data-direct-upload-url
+  const url = input.dataset.directUploadUrl
+  const upload = new DirectUpload(file, url)
+
+  upload.create((error, blob) => {
+    if (error) {
+      // Обрабатываем ошибку
+    } else {
+      // Добавьте соответствующим образом названное скрытое поле в форму со значением blob.signed_id, чтобы идентификаторы blob были переданы в обычном потоке загрузки
+      const hiddenField = document.createElement('input')
+      hiddenField.setAttribute("type", "hidden");
+      hiddenField.setAttribute("value", blob.signed_id);
+      hiddenField.name = input.name
+      document.querySelector('form').appendChild(hiddenField)
+    }
+  })
+}
+```
+Если необходимо отслеживать ход загрузки файла, можно передать третий параметр в конструктор DirectUpload. Во время загрузки DirectUpload вызовет метод directUploadWillStoreFileWithXHR объекта. Затем можно привязать свой собственный обработчик прогресса на XHR.
+```
+import { DirectUpload } from "@rails/activestorage"
+
+class Uploader {
+  constructor(file, url) {
+    this.upload = new DirectUpload(this.file, this.url, this)
+  }
+
+  upload(file) {
+    this.upload.create((error, blob) => {
+      if (error) {
+        // Обрабатываем ошибку
+      } else {
+        // Добавьте соответствующим образом названное скрытое поле в форму со значением of blob.signed_id
+      }
+    })
+  }
+
+  directUploadWillStoreFileWithXHR(request) {
+    request.upload.addEventListener("progress",
+      event => this.directUploadDidProgress(event))
+  }
+
+  directUploadDidProgress(event) {
+    // Используйте event.loaded и event.total, чтобы обновить индикатор процесса
+  }
+}
+```
+
+
+### Очистка файлов сохраненных во время системных тестов <a name="5.7.10"></a>
+
+Системные тесты очищают тестовые данные, откатывая транзакцию. Поскольку уничтожение никогда не вызывается на объекте, прикрепленные файлы никогда не очищаются. Если необходимо очистить файлы, можно сделать это в колбэке after_teardown. Выполнение этого здесь гарантирует, что все соединения, созданные во время теста, будут завершены и не будет получено сообщение об ошибке из Active Storage, в котором говорится, что он не может найти файл.
+```
+class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
+  driven_by :selenium, using: :chrome, screen_size: [1400, 1400]
+
+  def remove_uploaded_files
+    FileUtils.rm_rf("#{Rails.root}/storage_test")
+  end
+
+  def after_teardown
+    super
+    remove_uploaded_files
+  end
+end
+```
+Если системные тесты проверяют удаление модели с прикрепленными файлами, и используется Active Job, необходимо установить тестовую среду для использования встроенного адаптера очереди, поэтому задание на purge выполняется немедленно, а не когда-нибудь потом.
+
+Также можно использовать отдельное определение сервиса для тестовой среды, чтобы тесты не удаляли файлы, созданные во время разработки.
+```
+# Использование встроенной обработки задания, чтобы все произошло немедленно
+config.active_job.queue_adapter = :inline
+
+# Отдельное хранилище файлов в тестовой среде
+config.active_storage.service = :local_test
+```
+
+### Отбрасывание (удаление) файлов, сохраненных во время интеграционных тестов <a name="5.7.11"></a>
+
+Подобно системным тестам, файлы, загруженные во время интеграционных тестов, не будут автоматически очищены. Если необходимо очистить файлы, можно сделать это в колбэке after_teardown. Выполнение этого здесь гарантирует, что все созданные во время теста соединения будут завершены и не будет получено сообщение об ошибке из Active Storage, в котором говорится, что невозможно найти файл.
+```
+module RemoveUploadedFiles
+  def after_teardown
+    super
+    remove_uploaded_files
+  end
+
+  private
+
+  def remove_uploaded_files
+    FileUtils.rm_rf(Rails.root.join('tmp', 'storage'))
+  end
+end
+
+module ActionDispatch
+  class IntegrationTest
+    prepend RemoveUploadedFiles
+  end
+end
+```
+
+### Реализация поддержки других облачных сервисов <a name="5.7.12"></a>
+
+Если необходимо поддерживать облачный сервис, отличный от имеющихся, необходимо, необходимо реализовать Service. Каждый сервис расширяет `ActiveStorage::Service`, реализуя методы, требуемые для загрузки и скачивания файлов в облако
