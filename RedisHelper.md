@@ -127,3 +127,87 @@ OK
 > ttl key
 (integer) 9
 ```
+> In order to set and check expires in milliseconds, check the PEXPIRE and the PTTL commands, and the full list of SET options.
+
+### Redis Lists
+From a very general point of view a List is just a sequence of ordered elements: 10,20,1,2,3 is a list. But the properties of a List implemented using an Array are very different from the properties of a List implemented using a Linked List.
+
+Redis lists are implemented via Linked Lists. This means that even if you have millions of elements inside a list, the operation of adding a new element in the head or in the tail of the list is performed in constant time. The speed of adding a new element with the `LPUSH` command to the head of a list with ten elements is the same as adding an element to the head of list with 10 million elements.
+
+The `LPUSH` command adds a new element into a list, on the left (at the head), while the `RPUSH` command adds a new element into a list, on the right (at the tail). Finally the LRANGE command extracts ranges of elements from lists:
+```
+> rpush mylist A
+(integer) 1
+> rpush mylist B
+(integer) 2
+> lpush mylist first
+(integer) 3
+> lrange mylist 0 -1
+1) "first"
+2) "A"
+3) "B"
+```
+
+As you can see RPUSH appended the elements on the right of the list, while the final LPUSH appended the element on the left.
+
+Both commands are variadic commands, meaning that you are free to push multiple elements into a list in a single call:
+```
+> rpush mylist 1 2 3 4 5 "foo bar"
+(integer) 9
+> lrange mylist 0 -1
+1) "first"
+2) "A"
+3) "B"
+4) "1"
+5) "2"
+6) "3"
+7) "4"
+8) "5"
+9) "foo bar"
+```
+
+An important operation defined on Redis lists is the ability to pop elements. Popping elements is the operation of both retrieving the element from the list, and eliminating it from the list, at the same time. You can pop elements from left and right, similarly to how you can push elements in both sides of the list:
+```
+> rpush mylist a b c
+(integer) 3
+> rpop mylist
+"c"
+> rpop mylist
+"b"
+> rpop mylist
+"a"
+> rpop mylist
+(nil)
+```
+
+### Common use cases for lists
+Lists are useful for a number of tasks, two very representative use cases are the following:
+* Remember the latest updates posted by users into a social network.
+* Communication between processes, using a consumer-producer pattern where the producer pushes items into a list, and a consumer (usually a worker) consumes those items and executed actions. Redis has special list commands to make this use case both more reliable and efficient.
+
+For example both the popular Ruby libraries resque and sidekiq use Redis lists under the hood in order to implement background jobs.
+
+### Capped lists
+The `LTRIM` command is similar to `LRANGE`, but instead of displaying the specified range of elements it sets this range as the new list value. All the elements outside the given range are removed.
+
+An example will make it more clear:
+```
+> rpush mylist 1 2 3 4 5
+(integer) 5
+> ltrim mylist 0 2
+OK
+> lrange mylist 0 -1
+1) "1"
+2) "2"
+3) "3"
+```
+
+### Blocking operations on lists
+So Redis implements commands called `BRPOP` and `BLPOP` which are versions of `RPOP` and `LPOP` able to block if the list is empty: they'll return to the caller only when a new element is added to the list, or when a user-specified timeout is reached.
+
+This is an example of a BRPOP call we could use in the worker:
+```
+> brpop tasks 5
+1) "tasks"
+2) "do_something"
+```
