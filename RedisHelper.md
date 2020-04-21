@@ -48,7 +48,23 @@ OK
 (integer) 152
 ```
 > The INCR command parses the string value as an integer, increments it by one, and finally sets the obtained value as the new value. There are other similar commands like INCRBY, DECR and DECRBY. Internally it's always the same command, acting in a slightly different way.
+
 There are a number of commands for operating on strings. For example the GETSET command sets a key to a new value, returning the old value as the result. You can use this command, for example, if you have a system that increments a Redis key using INCR every time your web site receives a new visitor. You may want to collect this information once every hour, without losing a single increment. You can GETSET the key, assigning it the new value of "0" and reading the old value back.
+```
+ redis>  SET mykey "Hello"
+
+"OK"
+
+redis>  GETSET mykey "World"
+
+"Hello"
+
+redis>  GET mykey
+
+"World"
+
+redis>  
+```
 
 The ability to set or retrieve the value of multiple keys in a single command is also useful for reduced latency. For this reason there are the MSET and MGET commands:
 ```
@@ -60,3 +76,54 @@ OK
 3) "30"
 ```
 > When MGET is used, Redis returns an array of values.
+
+### Altering and querying the key space
+For example the EXISTS command returns 1 or 0 to signal if a given key exists or not in the database, while the DEL command deletes a key and associated value, whatever the value is.
+```
+> set mykey hello
+OK
+> exists mykey
+(integer) 1
+> del mykey
+(integer) 1
+> exists mykey
+(integer) 0
+```
+
+There are many key space related commands, but the above two are the essential ones together with the TYPE command, which returns the kind of value stored at the specified key:
+```
+> set mykey x
+OK
+> type mykey
+string
+> del mykey
+(integer) 1
+> type mykey
+none
+```
+
+### Redis expires: keys with limited time to live
+A few quick info about Redis expires:
+* They can be set both using seconds or milliseconds precision.
+* However the expire time resolution is always 1 millisecond.
+* Information about expires are replicated and persisted on disk, the time virtually passes when your Redis server remains stopped (this means that Redis saves the date at which a key will expire).
+
+Setting an expire is trivial:
+```
+> set key some-value
+OK
+> expire key 5
+(integer) 1
+> get key (immediately)
+"some-value"
+> get key (after some time)
+(nil)
+```
+
+(it can also be used in order to set a different expire to a key already having one, like `PERSIST` can be used in order to remove the expire and make the key persistent forever). However we can also create keys with expires using other Redis commands. For example using SET options:
+```
+> set key 100 ex 10
+OK
+> ttl key
+(integer) 9
+```
