@@ -211,3 +211,389 @@ This is an example of a BRPOP call we could use in the worker:
 1) "tasks"
 2) "do_something"
 ```
+
+There are more things you should know about lists and blocking ops. We suggest that you read more on the following:
+* It is possible to build safer queues or rotating queues using `RPOPLPUSH`.
+* There is also a blocking variant of the command, called `BRPOPLPUSH`.
+
+### Automatic creation and removal of keys
+Basically we can summarize the behavior with three rules:
+* When we add an element to an aggregate data type, if the target key does not exist, an empty aggregate data type is created before adding the element.
+* When we remove elements from an aggregate data type, if the value remains empty, the key is automatically destroyed. The Stream data type is the only exception to this rule.
+* Calling a read-only command such as `LLEN` (which returns the length of the list), or a write command removing elements, with an empty key, always produces the same result as if the key is holding an empty aggregate type of the type the command expects to find.
+
+Examples of rule 1:
+```
+> del mylist
+(integer) 1
+> lpush mylist 1 2 3
+(integer) 3
+```
+
+However we can't perform operations against the wrong type if the key exists:
+```
+> set foo bar
+OK
+> lpush foo 1 2 3
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+> type foo
+string
+```
+
+Example of rule 2:
+```
+> lpush mylist 1 2 3
+(integer) 3
+> exists mylist
+(integer) 1
+> lpop mylist
+"3"
+> lpop mylist
+"2"
+> lpop mylist
+"1"
+> exists mylist
+(integer) 0
+```
+The key no longer exists after all the elements are popped.
+
+Example of rule 3:
+```
+> del mylist
+(integer) 0
+> llen mylist
+(integer) 0
+> lpop mylist
+(nil)
+```
+
+### Redis Hashes
+```
+> hmset user:1000 username antirez birthyear 1977 verified 1
+OK
+> hget user:1000 username
+"antirez"
+> hget user:1000 birthyear
+"1977"
+> hgetall user:1000
+1) "username"
+2) "antirez"
+3) "birthyear"
+4) "1977"
+5) "verified"
+6) "1"
+```
+
+While hashes are handy to represent objects, actually the number of fields you can put inside a hash has no practical limits (other than available memory), so you can use hashes in many different ways inside your application.
+
+The command `HMSET` sets multiple fields of the hash, while `HGET` retrieves a single field. `HMGET` is similar to `HGET` but returns an array of values:
+```
+> hmget user:1000 username birthyear no-such-field
+1) "antirez"
+2) "1977"
+3) (nil)
+```
+There are commands that are able to perform operations on individual fields as well, like `HINCRBY`:
+```
+> hincrby user:1000 birthyear 10
+(integer) 1987
+> hincrby user:1000 birthyear 10
+(integer) 1997
+```
+> It is worth noting that small hashes (i.e., a few elements with small values) are encoded in special way in memory that make them very memory efficient.
+
+### Redis Sets 
+Redis Sets are unordered collections of strings. The `SADD` command adds new elements to a set. It's also possible to do a number of other operations against sets like testing if a given element already exists, performing the intersection, union or difference between multiple sets, and so forth.
+```
+> sadd myset 1 2 3
+(integer) 3
+> smembers myset
+1. 3
+2. 1
+3. 2
+```
+Redis has commands to test for membership. For example, checking if an element exists:
+```
+> sismember myset 3
+(integer) 1
+> sismember myset 30
+(integer) 0
+```
+One illustration is tagging news articles. If article ID 1000 is tagged with tags 1, 2, 5 and 77, a set can associate these tag IDs with the news item:
+```
+> sadd news:1000:tags 1 2 5 77
+(integer) 4
+```
+We may also want to have the inverse relation as well: the list of all the news tagged with a given tag:
+```
+> sadd tag:1:news 1000
+(integer) 1
+> sadd tag:2:news 1000
+(integer) 1
+> sadd tag:5:news 1000
+(integer) 1
+> sadd tag:77:news 1000
+(integer) 1
+```
+To get all the tags for a given object is trivial:
+```
+> smembers news:1000:tags
+1. 5
+2. 1
+3. 77
+4. 2
+```
+There are other non trivial operations that are still easy to implement using the right Redis commands. For instance we may want a list of all the objects with the tags 1, 2, 10, and 27 together. We can do this using the `SINTER` command, which performs the intersection between different sets. We can use:
+```
+> sinter tag:1:news tag:2:news tag:10:news tag:27:news
+... results here ...
+```
+The command to extract an element is called `SPOP`, and is handy to model certain problems. For example in order to implement a web-based poker game, you may want to represent your deck with a set. Imagine we use a one-char prefix for (C)lubs, (D)iamonds, (H)earts, (S)pades:
+```
+>  sadd deck C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 CJ CQ CK
+   D1 D2 D3 D4 D5 D6 D7 D8 D9 D10 DJ DQ DK H1 H2 H3
+   H4 H5 H6 H7 H8 H9 H10 HJ HQ HK S1 S2 S3 S4 S5 S6
+   S7 S8 S9 S10 SJ SQ SK
+   (integer) 52
+```
+
+Now we want to provide each player with 5 cards. The `SPOP` command removes a random element, returning it to the client, so it is the perfect operation in this case.
+
+However if we call it against our deck directly, in the next play of the game we'll need to populate the deck of cards again, which may not be ideal. So to start, we can make a copy of the set stored in the deck key into the game:1:deck key.
+
+This is accomplished using `SUNIONSTORE`, which normally performs the union between multiple sets, and stores the result into another set. However, since the union of a single set is itself, I can copy my deck with:
+```
+> sunionstore game:1:deck deck
+(integer) 52
+```
+
+Now I'm ready to provide the first player with five cards:
+```
+> spop game:1:deck
+"C6"
+> spop game:1:deck
+"CQ"
+> spop game:1:deck
+"D1"
+> spop game:1:deck
+"CJ"
+> spop game:1:deck
+"SJ"
+```
+One pair of jacks, not great...
+
+This is a good time to introduce the set command that provides the number of elements inside a set. This is often called the cardinality of a set in the context of set theory, so the Redis command is called `SCARD`.
+```
+> scard game:1:deck
+(integer) 47
+```
+The math works: 52 - 5 = 47.
+
+When you need to just get random elements without removing them from the set, there is the `SRANDMEMBER` command suitable for the task. It also features the ability to return both repeating and non-repeating elements.
+
+### Redis Sorted sets
+Moreover, elements in a sorted sets are taken in order (so they are not ordered on request, order is a peculiarity of the data structure used to represent sorted sets). They are ordered according to the following rule:
+* If A and B are two elements with a different score, then A > B if A.score is > B.score.
+* If A and B have exactly the same score, then A > B if the A string is lexicographically greater than the B string. A and B strings can't be equal since sorted sets only have unique elements.
+
+Let's start with a simple example, adding a few selected hackers names as sorted set elements, with their year of birth as "score".
+```
+> zadd hackers 1940 "Alan Kay"
+(integer) 1
+> zadd hackers 1957 "Sophie Wilson"
+(integer) 1
+> zadd hackers 1953 "Richard Stallman"
+(integer) 1
+> zadd hackers 1949 "Anita Borg"
+(integer) 1
+> zadd hackers 1965 "Yukihiro Matsumoto"
+(integer) 1
+> zadd hackers 1914 "Hedy Lamarr"
+(integer) 1
+> zadd hackers 1916 "Claude Shannon"
+(integer) 1
+> zadd hackers 1969 "Linus Torvalds"
+(integer) 1
+> zadd hackers 1912 "Alan Turing"
+(integer) 1
+```
+
+Implementation note: Sorted sets are implemented via a dual-ported data structure containing both a skip list and a hash table, so every time we add an element Redis performs an O(log(N)) operation. That's good, but when we ask for sorted elements Redis does not have to do any work at all, it's already all sorted:
+```
+> zrange hackers 0 -1
+1) "Alan Turing"
+2) "Hedy Lamarr"
+3) "Claude Shannon"
+4) "Alan Kay"
+5) "Anita Borg"
+6) "Richard Stallman"
+7) "Sophie Wilson"
+8) "Yukihiro Matsumoto"
+9) "Linus Torvalds"
+```
+
+What if I want to order them the opposite way, youngest to oldest? Use `ZREVRANGE` instead of `ZRANGE`:
+```
+> zrevrange hackers 0 -1
+1) "Linus Torvalds"
+2) "Yukihiro Matsumoto"
+3) "Sophie Wilson"
+4) "Richard Stallman"
+5) "Anita Borg"
+6) "Alan Kay"
+7) "Claude Shannon"
+8) "Hedy Lamarr"
+9) "Alan Turing"
+```
+
+It is possible to return scores as well, using the `WITHSCORES` argument:
+```
+> zrange hackers 0 -1 withscores
+1) "Alan Turing"
+2) "1912"
+3) "Hedy Lamarr"
+4) "1914"
+5) "Claude Shannon"
+6) "1916"
+7) "Alan Kay"
+8) "1940"
+9) "Anita Borg"
+10) "1949"
+11) "Richard Stallman"
+12) "1953"
+13) "Sophie Wilson"
+14) "1957"
+15) "Yukihiro Matsumoto"
+16) "1965"
+17) "Linus Torvalds"
+18) "1969"
+```
+
+Sorted sets are more powerful than this. They can operate on ranges. Let's get all the individuals that were born up to 1950 inclusive. We use the `ZRANGEBYSCORE` command to do it:
+```
+> zrangebyscore hackers -inf 1950
+1) "Alan Turing"
+2) "Hedy Lamarr"
+3) "Claude Shannon"
+4) "Alan Kay"
+5) "Anita Borg"
+```
+
+It's also possible to remove ranges of elements. Let's remove all the hackers born between 1940 and 1960 from the sorted set:
+```
+> zremrangebyscore hackers 1940 1960
+(integer) 4
+```
+> `ZREMRANGEBYSCORE` is perhaps not the best command name, but it can be very useful, and returns the number of removed elements.
+
+Another extremely useful operation defined for sorted set elements is the get-rank operation. It is possible to ask what is the position of an element in the set of the ordered elements.
+```
+> zrank hackers "Anita Borg"
+(integer) 4
+```
+> The ZREVRANK command is also available in order to get the rank, considering the elements sorted a descending way.
+
+### Lexicographical scores
+For example, let's add again our list of famous hackers, but this time use a score of zero for all the elements:
+```
+> zadd hackers 0 "Alan Kay" 0 "Sophie Wilson" 0 "Richard Stallman" 0
+  "Anita Borg" 0 "Yukihiro Matsumoto" 0 "Hedy Lamarr" 0 "Claude Shannon"
+  0 "Linus Torvalds" 0 "Alan Turing"
+```
+Because of the sorted sets ordering rules, they are already sorted lexicographically:
+```
+> zrange hackers 0 -1
+1) "Alan Kay"
+2) "Alan Turing"
+3) "Anita Borg"
+4) "Claude Shannon"
+5) "Hedy Lamarr"
+6) "Linus Torvalds"
+7) "Richard Stallman"
+8) "Sophie Wilson"
+9) "Yukihiro Matsumoto"
+```
+Using `ZRANGEBYLEX` we can ask for lexicographical ranges:
+```
+> zrangebylex hackers [B [P
+1) "Claude Shannon"
+2) "Hedy Lamarr"
+3) "Linus Torvalds"
+```
+
+### Updating the score: leader boards
+Just a final note about sorted sets before switching to the next topic. Sorted sets' scores can be updated at any time. Just calling `ZADD` against an element already included in the sorted set will update its score (and position) with O(log(N)) time complexity. As such, sorted sets are suitable when there are tons of updates.
+
+Because of this characteristic a common use case is leader boards. The typical application is a Facebook game where you combine the ability to take users sorted by their high score, plus the get-rank operation, in order to show the top-N users, and the user rank in the leader board (e.g., "you are the #4932 best score here").
+
+### Bitmaps
+Bits are set and retrieved using the `SETBIT` and `GETBIT` commands:
+```
+> setbit key 10 1
+(integer) 1
+> getbit key 10
+(integer) 1
+> getbit key 11
+(integer) 0
+```
+There are three commands operating on group of bits:
+* `BITOP` performs bit-wise operations between different strings. The provided operations are AND, OR, XOR and NOT.
+* `BITCOUNT` performs population counting, reporting the number of bits set to 1.
+* `BITPOS` finds the first bit having the specified value of 0 or 1.
+
+Both `BITPOS` and `BITCOUNT` are able to operate with byte ranges of the string, instead of running for the whole length of the string. The following is a trivial example of `BITCOUNT` call:
+```
+> setbit key 0 1
+(integer) 0
+> setbit key 100 1
+(integer) 0
+> bitcount key
+(integer) 2
+```
+
+Common use cases for bitmaps are:
+* Real time analytics of all kinds.
+* Storing space efficient but high performance boolean information associated with object IDs.
+
+### HyperLogLogs
+While you don't really add items into an HLL, because the data structure only contains a state that does not include actual elements, the API is the same:
+* Every time you see a new element, you add it to the count with `PFADD`.
+* Every time you want to retrieve the current approximation of the unique elements added with `PFADD` so far, you use the `PFCOUNT`.
+```
+    > pfadd hll a b c d
+    (integer) 1
+    > pfcount hll
+    (integer) 4
+```
+> An example of use case for this data structure is counting unique queries performed by users in a search form every day.
+
+# Securing Redis
+* Make sure the port Redis uses to listen for connections (by default 6379 and additionally 16379 if you run Redis in cluster mode, plus 26379 for Sentinel) is firewalled, so that it is not possible to contact Redis from the outside world.
+* Use a configuration file where the bind directive is set in order to guarantee that Redis listens on only the network interfaces you are using. For example only the loopback interface (127.0.0.1) if you are accessing Redis just locally from the same computer, and so forth.
+* Use the requirepass option in order to add an additional layer of security so that clients will require to authenticate using the AUTH command.
+* Use spiped or another SSL tunneling software in order to encrypt traffic between Redis servers and Redis clients if your environment requires encryption.
+
+# Using Redis from your application
+
+These instructions are Ruby specific but actually many library clients for popular languages look quite similar: you create a Redis object and execute commands calling methods. A short interactive example using Ruby:
+```
+>> require 'rubygems'
+=> false
+>> require 'redis'
+=> true
+>> r = Redis.new
+=> #<Redis client v2.2.1 connected to redis://127.0.0.1:6379/0 (Redis v2.3.8)>
+>> r.ping
+=> "PONG"
+>> r.set('foo','bar')
+=> "OK"
+>> r.get('foo')
+=> "bar"
+```
+
+# Redis persistence
+You can learn how Redis persistence works on this page, however what is important to understand for a quick start is that by default, if you start Redis with the default configuration, Redis will spontaneously save the dataset only from time to time (for instance after at least five minutes if you have at least 100 changes in your data), so if you want your database to persist and be reloaded after a restart make sure to call the `SAVE` command manually every time you want to force a data set snapshot. Otherwise make sure to shutdown the database using the `SHUTDOWN` command:
+```
+$ redis-cli shutdown
+```
+This way Redis will make sure to save the data on disk before quitting. Reading the persistence page is strongly suggested in order to better understand how Redis persistence works.
