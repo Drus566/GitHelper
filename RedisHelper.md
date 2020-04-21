@@ -1,4 +1,4 @@
-** An introduction to Redis data types and abstractions
+## An introduction to Redis data types and abstractions
 * Binary-safe strings.
 * Lists: collections of string elements sorted according to the order of insertion. They are basically linked lists.
 * Sets: collections of unique, unsorted string elements.
