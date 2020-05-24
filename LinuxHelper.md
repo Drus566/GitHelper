@@ -1,29 +1,32 @@
 ### Позволяет открывать файлы, папки из терминала
-xdg-open
+`xdg-open`
 ### Выводит размер папки
-du -hs .
+`du -hs .`
 ### Запуск GIMP
-flatpak run org.gimp.GIMP//stable
+`flatpak run org.gimp.GIMP//stable`
 ### Запуск InkScape
-flatpak run org.inkscape.Inkscape
+`flatpak run org.inkscape.Inkscape`
 ### История команд
-history | less
+`history | less`
 ## последняя команда из истории 
-!!
+`!!`
 ## отдельные слова из введенной команды 
-!:1
-!:0
+`!:1`
+`!:0`
 ## последняя команда начинающаяся со строки abc
-!abc
+`!abc`
 ## поиск по командам в терминале 
-ctrl + R
-ctrl + C
+`ctrl + R`
+`ctrl + C`
 ### Удаление директории 
-rm -r <dir>
+`rm -r <dir>`
 ### Конец файла реализуется на клавиатуре
-Ctrl + D
+`Ctrl + D`
 ### Принудительное завершение программы 
-Ctrl + C , Ctrl + \
+`Ctrl + C , Ctrl + \`
 ### Остановка вывода программы 
+```
 Ctrl + S # вкл
-Ctrl + Q # выкл       
+Ctrl + Q # выкл
+```
+### Выход
