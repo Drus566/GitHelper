@@ -6,3 +6,7 @@ du -hs .
 flatpak run org.gimp.GIMP//stable
 ### Запуск InkScape
 flatpak run org.inkscape.Inkscape
+### История команд
+history | less
+### Удаление директории 
+rm -r <dir>
