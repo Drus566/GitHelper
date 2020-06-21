@@ -71,3 +71,61 @@ msglen  equ $-msg
 # макровызов
 pcall1 proc, eax
 ```
+### Однострочные макросы
+```
+%define arg1 ebp+8
+%define arg2 ebp+12
+%define arg3 ebp+16
+%define local1 ebp-4
+%define local2 ebp-8
+%define local3 ebp-12
+...
+%define arg(n) ebp+(4*n)+4
+%define local(n) ebp-(4*n)
+
+# теперь к параметру процедуры можно обратится так
+mov eax, [arg1]
+
+# или так
+mov [arg(7)], edx
+
+# можно квадратные скобки включить внутрь макросов 
+%define arg1 [ebp+8]
+
+# тогда вызов будет такой
+mov eax, arg1
+```
+### Удаление одностраничного макроса
+`%undef <имя макроса>`
+### Макропеременная. Вычисление арифметического выражения
+```
+%assign      var    25
+%assign      var    var+1
+# var = 26
+```
+### Директивы условной компиляции
+```
+%ifdef DEBUG_PRINT # компилирует в случае если определен однострочный макрос DEBUG_PRINT
+       PRINT "Entering suspicious section"
+       PUTCHAR 10
+%endif
+
+# определить символ можно как внутри программы, так и ключем
+nasm -f elf -dDEBUG_PRINT prog.asm
+```
+### Макроповторения
+```
+%rep <количество повторений>
+%endrep
+# %exitrep - досрочно прекращает повторение
+```
+пример:
+```
+%assign n 50
+%rep 100
+    db n
+  %assign n n+1
+%endrep
+```
+### Многостраничные макросы и локальные метки
+`%%<имя метки>`
