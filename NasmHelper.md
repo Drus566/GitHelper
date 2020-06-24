@@ -197,8 +197,12 @@ add esp, 12
 * таймер
 
 ### Создание библиотеки 
-`ar crs <название библиотеки> <имена объектных файлов>`
-`ar crs libgreet.a strlen.o getstr.o putstr.o quit.o`
+```
+ar crs <название библиотеки> <имена объектных файлов>
+ar crs libgreet.a strlen.o getstr.o putstr.o quit.o
+```
 Далее собираем исполняемый файл линковщиком
-`ld <имя главной программы> <имя библиотеки>`
-`ld greet.o libgreet.a`
+```
+ld <имя главной программы> <имя библиотеки>
+ld greet.o libgreet.a
+```
