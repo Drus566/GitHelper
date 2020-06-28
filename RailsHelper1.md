@@ -16205,4 +16205,7 @@ rails g controller Articles create update destroy
 * `rake db:setup` - Запустит поочереди create, schema:load, seed
 * `rake db:structure:dump` - Сделает дамп структуры в db/structue.sql
 * `rake db:structure:load` - Восстановит базу из db/structue.sql
-
+```
+- 1
+- 2
+- 3
