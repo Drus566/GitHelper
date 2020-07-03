@@ -897,3 +897,64 @@ struct item *int_array_to_list(int *arr, int len)
 	return first;
 }
 ```
+Создание списка с помощью рекурсии:
+```
+struct item *int_array_to_list(int *arr, int len)
+{
+	struct item *tmp;
+	if(!len)	
+		return NULL;
+	tmp = malloc(sizeof(struct item));
+	tmp->data = *arr;
+	tmp->next = int_array_to_list(arr + 1, len - 1);
+	return tmp;
+}
+```
+Пример суммы всех элементов списка:
+```
+int int_list_sum(const struct item *1st)
+{
+	int sum = 0;
+	const struct item *tmp = 1st;
+	while(tmp) {
+		sum += tmp->data;
+		tmp = tmp->next;
+	}
+	return sum;
+}
+
+// или например так
+int int_list_sum(const struct item *1st)
+{
+	int sum = 0;
+	const struct item *tmp;
+	for(tmp = 1st; tmp; tmp = tmp->next)
+		sum += tmp->data;
+	return sum;
+}
+
+// или даже так
+int int_list_sum(const struct item *1st)
+{
+	int sum = 0;
+	for(; 1st; 1st = 1st->next)
+		sum += 1st->data;
+	return sum;
+}
+```
+
+Суммирование элементов списка через рекурсию:
+```
+int int_list_sum(const struct item *1st)
+{
+	if(1st)
+		return 1st->data + int_list_sum(1st->next);
+	else
+		return 0;
+}
+// или так
+int int_list_sum(const struct item *1st)
+{
+	return 1st ? 1st->data + int_list_sum(1st->next) : 0;
+}
+```
