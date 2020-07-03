@@ -952,9 +952,85 @@ int int_list_sum(const struct item *1st)
 	else
 		return 0;
 }
+
 // или так
 int int_list_sum(const struct item *1st)
 {
 	return 1st ? 1st->data + int_list_sum(1st->next) : 0;
 }
 ```
+Удаление элементов списка
+```
+void delete_int_list(struct item *1st)
+{
+	while(1st) {
+		struct item *tmp = 1st;
+		1st = 1st->next;
+		free(tmp);
+	}
+}
+
+// или так
+void delete_int_list(struct item *1st)
+{
+	while(1st) {
+		struct item *tmp = 1st->next;
+		free(1st);
+		1st = tmp;
+	}
+}
+```
+Удаление элементов списка с помощью рекурсии:
+```
+void delete_int_list(struct item *1st)
+{
+	if(!1st)
+		return;
+	delete_int_list(1st->next);
+	free(1st);
+}
+
+// или так
+void delete_int_list(struct item *1st)
+{
+	if(1st) {
+		delete_int_list(1st->next);
+		free(1st);
+	}
+}
+```
+Пример удаления всех отрицательных чисел из списка:
+```
+// Указатель на текущий элемент(по сути это указатель на указатель)
+struct item **pcur;
+
+void delete_negatives_from_int_list(struct item **pcur)
+{
+	while(*pcur) { // пока то, на что он указывает, не равно NULL
+		if ((*pcur)->data < 0) { // если элемент надо удалить
+			struct item *tmp = *pcur;  // запоминаем его АДРЕС
+			*pcur = (*pcur)->next; // исключаем из списка
+			free(tmp); // удаляем
+			// при этом адрес уже стал текущим
+		} else {
+			pcur = &(*pcur)->next;
+		}
+	}
+}
+delete_negatives_from_int_list(&first) // вызов функции
+```
+Удаление всех отрицательных чисел с помощью рекурсии
+```
+void delete_negatives_from_int_list(struct item **pcur)
+{
+	if(!*pcur)
+		return;
+	delete_negatives_from_int_list(&(*pcur)->next);
+	if((*pcur)->data < 0) {
+		struct item *tmp = *pcur;
+		*pcur = (*pcur)->next;
+		free(tmp);
+	}
+}
+```
+### Двусвязные списки
