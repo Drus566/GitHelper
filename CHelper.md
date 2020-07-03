@@ -1034,3 +1034,37 @@ void delete_negatives_from_int_list(struct item **pcur)
 }
 ```
 ### Двусвязные списки
+Пример:
+```
+struct dbl_item {
+	double data;
+	struct dbl_item *prev, *next;
+};
+```
+Пример внесения элемента в начало:
+```
+struct dbl_item *first = NULL, *last = NULL;
+struct dbl_item *current = NULL, *tmp;
+
+tmp = malloc(sizeof(struct dbl_item));
+tmp->data = x;
+tmp->prev = NULL;
+tmp->next = first;
+if(first)
+	first->prev = tmp;
+else	
+	last = tmp;
+first = tmp;
+```
+Внесение в конец:
+```
+tmp = malloc(sizeof(struct dbl_item));
+tmp->data = x;
+tmp->prev = last;
+tmp->next = NULL;
+if(last)
+	last->next = tmp;
+else
+	first = tmp;
+last = tmp;
+```
