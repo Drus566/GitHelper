@@ -1068,3 +1068,115 @@ else
 	first = tmp;
 last = tmp;
 ```
+Изъятие первого элемента двусвязного списка:
+```
+if(first) {
+	tmp = first;
+	first = first->next;
+	if(first)
+		first->prev = NULL;
+	else 
+		last = NULL;
+	free(tmp);
+}
+```
+Изъятие последнего элемента:
+```
+if(last) {
+	tmp = last;
+	last = last->prev;
+	if(last)
+		last->next = NULL;
+	else	
+		first = NULL;
+	free(tmp);
+}
+```
+Удаление всех элементов списка:
+```
+if(first) {
+	first = first->next;
+	while(first){
+		free(first->last);
+		first = first->next;
+	}
+	free(last);
+	last = NULL;
+}
+```
+Вставка элемента перед текущим:
+```
+tmp = malloc(sizeof(struct_dbl_item));
+tmp->data = x;
+tmp->next = current;
+tmp->prev = current->prev;
+current->prev = tmp;
+if(tmp->prev)
+	tmp->prev->next = tmp;
+else
+	first = tmp;
+```
+Вставка после текущего:
+```
+tmp = malloc(sizeof(struct dbl_item));
+tmp->data = x;
+tmp->prev = current;
+tmp->next = current->next;
+current->next = tmp;
+if(tmp->next)
+	tmp->next->prev = tmp;
+else
+	last = tmp;
+```
+Удаление текущего элемента:
+```
+if (current->prev)
+	current->prev->next = current->next;
+else
+	first = current->next;
+if (current->next)
+	current->next->prev = current->prev;
+else
+	last = current->prev;
+free(current);
+current = NULL;
+```
+
+### Простое бинарное дерево поиска
+Бинарное дерево поиска состоит из узлов, в каждом из которых присутствуют указатели на левое и правое поддеревья, а также полезная информация. Например:
+```
+struct node {
+	int val;
+	struct node *left, *right;
+};
+```
+Пример прохода по дереву и печать его значений с помощью рекурсий:
+```
+void int_bin_tree_print_rec(struct node *r) {
+	if(!r)
+		return;
+	int_bin_tree_print_rec(r->left);
+	printf("%d ", r->val);
+	int_bin_tree_print_rec(r->right);
+}
+```
+Добавление нового элемента в дерево:
+```
+void int_bin_tree_add(struct node **root, int n)
+{
+	if(!*root) {
+		*root = malloc(sizeof(**root));
+		(*root)->val = n;
+		(*root)->left = NULL;
+		(*root)->right = NULL;
+		return;
+	}
+	if((*root)->val == n)
+		return;
+	if(n < (*root)->val)
+		int_bin_tree_add(&(*root)->left, n);
+	else 
+		int_bin_tree_add(&(*root)->right, n);
+}
+```
+### Объединение и вариантные структуры
