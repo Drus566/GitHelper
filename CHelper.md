@@ -1481,3 +1481,22 @@ gcc -Wall -g -D MYSYMBOL prog.c -o prog
 5. `__STDC__` - равен 1, позволяет проверить равен ли компилятор стандарту.
 
 ### Директива `#include`
+* `#include <stdio.h>` - для библиотек.
+* `#include "mymodule.h"` - предназначен для своих заголовочных файлов, которые написаны для той же программы, что и файл из которого происходит включение.
+
+### Особенности оформления макродиректив
+Отступы макродиректив оформляются так:
+```
+#ifdef FIXED_ARRAY
+#	if ARRAY_SIZE > MAX_ARRAY_SIZE
+		quick_sort(array);
+#	else
+		slow_sort(array);
+#	endif
+#else
+	if(arr > MAX_ARRAY)
+		quick_sort(array);
+	else
+		bubble(array);
+#endif
+```
