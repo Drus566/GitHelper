@@ -1388,3 +1388,96 @@ printf("%s = %d\n", "abrakadabra", abrakadabra);
 #define VAR_PRINT(x) printf(#x " = %d\n", x)
 ```
 ### Макросы и конструкция `do {} while(0)`
+`#define MYMACRO(arg) do { f(arg); g(); } while(0)`
+
+### Директивы условной компиляции
+Все что написано между `#if 0` и `#endif` компилятор проигнорирует. Если потребуется снова включить код, то вместо `if 0`, необходимо писать `if 1`.
+```
+#if 0
+void sort(int *a, int n)
+{
+	/*...*/
+}
+#endif
+```
+Пример выбора фрагмента кода с помощью ветвления `else`:
+```
+#if 1
+void string_copy(char *dest, const char *src)
+{
+	int i;
+	for(i = 0; src[i]; i++) 
+		dest[i] = src[i];
+	dest[i] = 0;
+}
+#else	
+void string_copy(char *dest, const char *src)
+{
+	for(; *src; dest++, src++)
+		*dest = *src;
+	*dest = 0;
+}
+#endif
+```
+Директивы для управления ветвлением - `#if`, `#else`, `#endif`, `#elif`. Пример управления ветвлением с помощью директивы `#define`:
+```
+#define USE_INDEX_IN_STRING_COPY 1
+
+#if USE_INDEX_IN_STRING_COPY
+```
+
+Указание директивы с помощью флага при компиляции:
+```
+gcc -Wall -g -D USE_INDEX_IN_STRING_COPY=1 prog.c -o prog
+```
+
+Для проверки определения директивы `#define` используются дирекитвы `#ifdef`, `#ifndef`. Это сокращенные версии для `#if defined()` и `if !defined()`.
+Пример проверки определения дирекитвы `#define`:
+```
+#ifndef USE_INDEX
+#define USE_INDEX 1
+#endif
+```
+
+Операция определенности макросимвола `defined`. Пример:
+```
+#if defined(DEBUG_PRINT) && DEBUG_PRINT > 7
+```
+
+Ветвление с помощью `defined`:
+```
+#if defined(FOR_PETROV)
+	/*...*/
+#elif defined(FOR_SIDOROV)
+	/*...*/
+#else
+	/*...*/
+#endif
+
+// или так
+#ifdef FOR_PETROV
+/*...*/
+#elifdef FOR_SIDOROV
+/*...*/
+#else 
+/*...*/
+#endif
+```
+Определить символ можно не задавая ему никакого значения:
+```
+#define MYSYMBOL
+// или так
+gcc -Wall -g -D MYSYMBOL prog.c -o prog
+```
+### Еще несколько полезных директив
+* Директива для забывания макросимвола - `#undef <макросимвол>`
+* Прерывание компиляции и выдача ошибки - `#error <текст ошибки>`
+* Когда текст Си это результат компиляции другой программы, используется - `#line`
+* Макросимволы, определенные изначально компилятором, и не могут быть переопределены:
+1. `__LINE__` - номер текущей строки
+2. `__FILE__` - имя файла
+3. `__DATE__` - текущая дата
+4. `__TIME__` - текущее время
+5. `__STDC__` - равен 1, позволяет проверить равен ли компилятор стандарту.
+
+### Директива `#include`
