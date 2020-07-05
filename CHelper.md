@@ -1834,4 +1834,49 @@ void int_callback_print(int data, void *userdata)
 // вызов, поскольку данные не используются, их значение NULL
 int_bin_tree_traverse(root, int_callback_print, NULL);
 ```
+тот же пример с суммированием элементов дерева:
+```
+void int_callback_sum(int data, void *userdata)
+{
+	int *sum = userdata;
+	*sum += data;
+}
 
+// или можно записать так
+void int_callback_sum(int data, void *userdata)
+{
+	*(int*)userdata += data;
+}
+
+// подсчет суммы
+int sum;
+sum = 0;
+int_bin_tree_traverse(root, int_callback_sum, &sum);
+```
+пример с поиском минимального числа, максимального числа и общего количества чисел. 
+```
+// пользовательские данные 
+struct minmaxcount {
+	int count, min, max;
+};
+
+// callback
+void int_callback_minmaxcount(int data, void *userdata)
+{
+	struct minmaxcount *mmc = userdata;
+	if(mmc->count == 0) {
+		mmc->min = mmc->max = data;
+	} else {
+		if(mmc->min > data)
+			mmc->min = data;
+		if(mmc->max < data)
+			mmc->max = data;
+	}
+	mmc->count++;
+}
+
+// вызов
+struct minmaxcount mmc;
+mmc.count = 0;
+int_bin_tree_traverse(root, int_callback_minmaxcount, &mmc);
+```
