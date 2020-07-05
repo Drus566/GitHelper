@@ -1713,3 +1713,125 @@ msgmerge -U --backup=numbered ru.po hellobye.pot
 ```
 При таких параметрах `msgmerge` запишет результаты сразу в файлы `ru.po`, а старые версии на всякий случай сохранит под `ru.po.~1~`. Далле форматируем новые файлы и запускаем `msgfmt` и копируем полученные файлы с суффиксом `.mo` куда следует.
 > Пакеты `autoconf/autotools` ничего не решают а создают проблемы, поэтому `gettext` следует использовать без них.
+
+### Указатель на массив
+`int m[3][4];` - `m` есть массив из трех массивов из четырех элементов типа `int`. В памяти массив располагается построчно. Пример заполнения двумерного массива:
+```
+for(i = 0; i < 3; i++)
+	for(j = 0; j < 4; j++)
+		m[i][j] = i * j;
+```
+Пример инициализаторов:
+```
+int m[3][4] = {{ 0, 0, 0, 0 }, { 0, 1, 2, 3 }, { 0, 2, 4, 6 }};
+const int level_change[3][3] = {
+	{ 0, 0, 0 },
+	{ 0, 1, 2 },
+	{ 0, 2, 3 }
+};
+```
+
+Адрес массива из четырех элементов типа `int`(указатель на массив):
+```
+int (*p)[4];
+```
+Теперь можно сделать `p = m` и работать с этим `p` так же, как мы работали с `m`.
+
+Аналогичным образом для трехмерного массива:
+```
+int z[10][15][20];
+```
+потребуется указатель на двумерный массив:
+```
+int (*zptr)[15][20];
+```
+
+### Указатели на функции
+Функции имеют одинаковый профиль,  если их количество и типы параметров, а также тип возвращаемого значения у них одинаковый.
+
+Например если есть функции:
+```
+double dbl_sum(const double *a, int size)
+{
+/*...*/
+}
+
+double dbl_min(const double *a, int size)
+{
+/*...*/
+}
+
+double dbl_average(const double *a, int size)
+{
+/*...*/
+}
+```
+то указатель способный хранить адрес любой из трех функций выглядит так:
+```
+double (*fptr)(const double *a, int);
+```
+присвоить адрес любой из трех функций можно так:
+```
+fptr = &dbl_min;
+fptr = dbl_min;
+```
+вызов функции через указатель:
+```
+double arr[100];
+double res;
+
+res = (*fptr)(arr, sizeoff(arr)/sizeof(*arr));
+res = fptr(arr, sizeof(arr)/sizeof(*arr));
+```
+Пример использования указателя на массив для критерия удаления из списка:
+```
+int is_negative(int x) { return x < 0; }
+int is_even(int x) { return x % 2 == 0; }
+int is_div7(int x) { return x % 7 == 0; }
+
+void delete_from_int_list(struct item **pcur, int (*crit)(int))
+{
+	while(*pcur) {
+		// вызов указателя на функцию с параметром очередного числа из массива
+		if((*crit)((*pcur)->data)) {
+			struct item *tmp = *pcur;
+			*pcur = (*pcur)->next;
+			free(tmp);
+		} else {
+			pcur = &(*pcur)->next;
+		}
+	}
+}
+
+// вызов
+delete_from_int_list(&first, &is_negative);
+delete_from_int_list(&first, &is_div7);
+```
+
+Пример с **`callback function`**.
+Обход дерева и вывод значения элемента через колбек функцию:
+```
+// профиль функции
+void callback_function(int num, void *userdata);
+
+void int_bin_tree_traverse(struct node *r,
+	  		   void (*callback)(int, void*),
+			   void *userdata)
+{
+	if(!r)
+		return;
+	int_bin_tree_traverse(r->left);
+	(*callback)(r->val, userdata);
+	int_bin_tree_traverse(r->right);
+}
+
+// для вывода значения дерева
+void int_callback_print(int data, void *userdata)
+{
+	printf("%d ", data);
+}
+
+// вызов, поскольку данные не используются, их значение NULL
+int_bin_tree_traverse(root, int_callback_print, NULL);
+```
+
