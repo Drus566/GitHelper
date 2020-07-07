@@ -2316,3 +2316,107 @@ int main()
 	return 0;
 }
 ```
+### Программа на Си без стандартной библиотеки
+Пример программы без стандартной библиотеки на Си, выводит на экран информацию. Модуль на assembler:
+```
+; calls.asm
+global 		sys_read
+global		sys_write
+global		sys_errno
+
+section		.text
+
+generic_syscall_3:
+		push	ebp
+		mov	ebp, esp
+		push	ebx
+		mov	ebx, [ebp+8]
+		mov	ecx, [ebp+12]
+		mov	edx, [ebp+16]
+		int 	80h
+		mov	edx, eax
+		and	edx, 0fffff000h
+		cmp	edx, 0fffff000h
+		jnz	.okay
+		mov	[sys_errno], eax
+		mov	eax, -1
+.okay		pop	ebx
+		mov	esp, ebp
+		pop 	ebp
+		ret
+		
+sys_read:	mov 	eax, 3
+		jmp 	generic_syscall_3
+sys_write: 	mov	eax, 4
+		jmp	generic_syscall_3
+
+section		.bss
+sys_errno	resd	1
+```
+Модуль для загрузки `main` на ассмеблер:
+```
+; start.asm
+global _start;
+extern main
+section		.text
+_start:		mov	ecx, [esp]	; argc in ecx
+		mov	eax, esp
+		add	eax, 4		; argv in eax
+		push	eax
+		push	ecx
+		call	main
+		add	esp, 8		; clean the stack
+		mov	ebx, eax	; now call _exit
+		mov	eax, 1
+		int 	80h
+```
+
+Модуль на Си, с расчетом на использование только что написанных оберток, вместо функции `write` из стандартной библиотеки:
+```
+/* greet3.c */
+int sys_write(int fd, const void *buf, int size);
+
+static const char dunno[] = "I don't know how to greet you\n";
+static const char hello[] = "Hello, dear ";
+
+static int string_length(const char *s)
+{
+	int i;
+	for(i = 0; s[i]; i++)
+		;
+	return i;
+}
+
+int main(int argc, char **argv)
+{
+	if(argc < 2) {
+		sys_write(1, dunno, sizeof(dunno)-1);
+		return 1;
+	}
+	sys_write(1, hello, sizeof(hello)-1);
+	sys_write(1, argv[1], string_length(argv[1]));
+	sys_write(1, "\n", 1);
+	return 0;
+}
+```
+
+Сборка программы:
+```
+nasm -f elf start.asm
+nasm -f elf calls.asm
+gcc -Wall -c greet3.c
+ld start.o calls.o greet3.o -o greet3
+```
+
+> Для финальной сборки вызвали редактор связей вручную, не использую возможностей `gcc`. Ведь мы отказались от использования библиотеки Си, так что знания компилятора относительно того, где брать эту библиотеку, не нужны. 
+
+Размер исполняемого файла - 816 байт, что в семьсот с лишним раз меньше, чем со стандартной библиотекой.
+
+Но гораздо важнее сам принцип. **Язык Си позовляет полностью отказаться от возможностей стандартной библиотеки**. Кроме Си, таким свойством - абсолютной независимостью от библиотечного кода, также иногда называемым `zero runtime` - обладают на сегодняшний день только языки ассемблеров, ни один язык выского уровня не представляет такой возможности.
+
+Для того, чтобы обладать свойствами `zero runtime`, язык не должен включать никаких средств, реализация которых на уровне машинного кода столь сложна, чтобы имело смысл выносить её в подпрограмму. Иначе говоря, свойство `zero runtime` достигается благодаря отсутствию в языке определенных возможностей, а не благодаря их наличию.
+
+> При использовании `gcc` наша программа могла бы не пройти финальную сборку, при этом компоновщик пожаловался бы на отсутствие каких-то неведомых функций, чьи имена начинаются с двух подчеркиваний. Это означало бы, что в нашей программе мы использовали некую возможность, которую компилятор реализует через вызов "своей собственной функции". Примером такой возможности служит умножение чисел типа `long long` на 32 битной системе. К счастью, в такой ситуации требуется подключать не обычную "стандартную библиотеку", а сравнительно небольшую библиотеку, содержащую как раз такие вот "хитрые" функции. Для `gcc` эта библиотека называется `libgcc` и подключается добавлением флага `-lgcc` при вызове линкера:
+```
+ld start.o calls.o greet3.o -lgcc -o greet3
+```
