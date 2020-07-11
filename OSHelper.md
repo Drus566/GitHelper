@@ -68,6 +68,15 @@ ln -s /path/to/old/name new_name
 * `int open(const char *name, int mode, int perms);
 
 Чтение из потока ввода и запись в поток вывода происходит с помощью сис. вызовов:
-* `int read(int filedescriptor, void *mem, int len);`
-* `int write(int fd, const void *data, int len);`
+* `int read(int fd, void *mem, int len);
+* `int write(int fd, const void *data, int len)
+
+Закрытие файла - `int close(int fd)`, даже если произошла ошибка дескриптор никогда не остается открытым.
+
+Изменение текущей позиции в файле - `int lseek(int fd, int offset, int whence);`. Возвращает новое значение текущей позиции, считая от начала, `lseek(fd, 0, SEEK_END)` вернет длину файла, а текущей позицией станет его конец.
+
+В большинстве случаев операции записи выполняются системой в так называемом асинхронном режиме вывода.
+
+В явном виде дожидается завершение операции записи при асинхронном режиме - `int fsync(int fd);`.
+
 
