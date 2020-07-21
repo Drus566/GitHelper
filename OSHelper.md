@@ -1311,3 +1311,14 @@ int bind(int sockfd, struct sockaddr *addr, int addrlen);
 * `sin_port` - задает номер порта в сетевом порядке байтов
 * `sin_addr` - задает ip адрес, поле `sin_addr` само является структурой, имеющей лишь одно поле с именем `s_addr`, которое хранит ip адрес в виде беззнакового четырехбайтного целого, в сетевом порядке байтов.
 
+Чтобы обесепечить переносимость программ на уровне исходного кода, в ОС семейства Unix введены стандартные библиотечные функции для преобразования целых чисел из формата данной машины (host byte order) в сетевой формат (network byte order):
+```
+unsigned long int htonl(unsigned long int hostlong);
+unsigned short int htons(unsigned short int hostshort);
+unsigned long int ntohl(unsigned long int netlong);
+unsigned short int ntohs(unsigned short int netshort);
+```
+* h - host
+* n - network
+* l - long
+* s - short
