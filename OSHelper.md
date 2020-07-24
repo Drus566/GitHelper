@@ -1593,4 +1593,29 @@ for(;;) {
 int select(int n, fd_set *readfds, fd_set *writefds, fd_set *exfds, struct timeval *timeout)
 ```
 ### Сеанс работы как конечный автомат
+При реализации конечных автоматов в программах состоянием соответствует значения переменных.
+Пример:
+```
+enum fsm_states {
+  fsm_states,
+  fsm_name = fsm_start,
+  fsm_age,
+  fsm_town,
+  fsm_band
+};
+```
+Конечный автомат не может управлять поступлением событий.
 
+Пример программы, ведущей диалог с пользователем:
+```
+#define INBUFSIZE 1024
+
+struct session {
+  int fd;
+  char buf[INBUFSIZE];
+  int buf_used;
+  enum fsm_states state;
+  char *name, *town, *band;
+  int age;
+};
+```
