@@ -109,5 +109,77 @@ inline int f(int x)
 ```
 
 * Инициализация членов класса в конструкторе 
-  
-    
+```
+class A {
+//...
+public:
+  A(int x, int y) { /.../ }
+};
+
+class B {
+  A a;
+public:
+  B::B() : a(2, 3) {/.../} // инициализация членов класса в конструкторе
+  // ...
+};
+```
+> Инициализаторы полей должны следовать в списке после двоеточия в том же порядке, в котором сами поля описаны в классе.
+
+```
+class Complex {
+  double re, im;
+public:
+  Complex(double a_re, double a_im) : re(a_re), im(a_im) {}
+  Complex(double a_re) : re(a_re), im(0) {}
+  Complex() : re(0), im(0) {}
+  //...
+```
+
+* Перегрузка операций простыми функциями
+```
+Complex operator+(const Complex& a, const Complex& b)
+{
+  return Complex(a.GetRe() + b.GetRe(), a.GetIm() + b.GetIm());
+}
+
+Complex z, t;
+z = t + 0.5;
+z = 0.5 + t;
+
+// Выражение a + b компилятор пытается превратить в одно из следующих выражений
+a.operator+(b)
+operator+(a,b)
+```
+* Дружественные функции и классы
+Все детали реализации класса или структуры будут доступны 
+```
+class Complex {
+  friend Complex operator+(const Complex&, const Complex&);
+  //..
+}
+Complex operator+(const Complex& a, const Complex& b)
+{
+  return Complex(a.re + b.re, a.im + b.im);
+}
+```
+Дружественной может быть и обычная функция
+```
+class Cls1 {
+  friend void f(int, const char*);
+  //...
+};
+
+void f(int, const char *)
+{
+    // используются закрытые поля Cls1
+}
+```
+Можно сделать дружественной целый класс 
+```
+class A {
+  friend class B;
+};
+```
+
+
+
