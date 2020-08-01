@@ -181,5 +181,31 @@ class A {
 };
 ```
 
+* Переопределение операций присваивания
+```
+class Complex {
+  const Complex& operator=(const Complex& c)
+    { re = c.re; im = c.im; return *this; }
+  const Complex& operator+=(const Complex& c)
+    { re += c.re; im += c.im; return *this; }
+};
+```
+Или ничего не возвращая:
+```
+class Complex {
+  void operator=(const Complex& c)
+    { re = c.re; im = c.im; }
+  void operator+=(const Complex& c)
+    { re += c.re; im += c.im; }
+```
+Аргумент операции присваивания не обязан иметь тот же тип, что и описываемый класс:
+```
+class Complex {
+  void operator=(double x) { re = x; im = 0; }
+};
+```
+
+* Методы, возникшие неявно
+
 
 
