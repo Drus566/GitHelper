@@ -1,6 +1,6 @@
 ## C++
 ### Конструкторы
-`~File(){ fd = -1; }`
+`File(){ fd = -1; }`
 ### Конструкторы преобразования 
 Конструктор, который получает на вход один параметр, имеющий тип, отличный от описываемого.
 ### Дескрукторы
@@ -229,3 +229,61 @@ private:
 };
 ```
 ### Переопределение операции индексирования
+```
+int& IntArray::operator[](unsigned int idx)
+{
+  if(idx >= size)
+    Resize(idx);
+  return p[idx];
+}
+```
+### Переопределение операций ++ и --
+```
+class A {
+public: 
+  void operator++() { printf("first\n"); }
+  void operator--() { printf("second\n"); }
+  void operator++(int) { printf("third\n"); }
+  void operator--(int) { printf("fourth\n"); }
+};
+
+A a;
+++a; // first
+a++; // third
+--a; // second
+a--; // fourth
+```
+Возвращение значений:
+```
+class MyInt {
+  int i;
+public: 
+  MyInt(int x) : i(x) {}
+  const MyInt& operator++() { i++; return *this; }
+  MyInt operator++(int)
+    { MyInt tmp(*this); i++; return tmp; } 
+  // ...
+```
+### Переопределение операции ->
+```
+s1* operator->() const { return p; }
+```
+### Переопределение операции вызова функции
+```
+void operator()() {}
+```
+### Переопределение операции преобразования типа
+Операция неявного преобразования типов определяется методом, имя которого состоит из слова `operator` и имени типа, к которому будет происходить преобразование.
+```
+class A {
+  // ...
+public:
+  // ...
+  operator int() const { /* ... */ }
+};
+
+A a;
+int x;
+// ...
+x = a;
+```
