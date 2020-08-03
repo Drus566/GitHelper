@@ -325,3 +325,120 @@ Cls::TheStaticMethod(5, 15);
 Cls c;
 c.TheStaticMethod(5, 15);
 ```
+### Возбуждение исключений
+```
+unsigned int line_count_in_file(count char *file_name)
+{
+  FILE *f = fopen(file_name, "r");
+  if(!f)
+    throw "couldnt open the file"; // возбуждение исключения
+  int n = 0;
+  int c = 0;
+  while ((c = fgetc(f)) != EOF)
+    if(c == '\n')
+      n++;
+  fclose(f);
+  return n;
+}
+```
+### Обработка исключений
+В данном случае ловим исключение `const char*`, а не просто `char*`, поскольку именно такой тип (адрес константы типа `char`) имеет в Си и Си++ строковый литерал. Если убирать модификатор `const`, исключение поймано не будет.
+```
+#include <stdio.h>
+
+unsigned int line_count_in_file(const char *file_name);
+
+int main(int argc, char **argv)
+{
+  if(argc<2) {
+    fprintf(stderr, "No file name\n");
+    return 1;
+  }
+  try {
+    int res = line_count_in_file(argv[1]);
+    printf("The file %s contains %d lines\n", argv[1], res);
+  }
+  catch(const char *exception) {
+    fprintf(stderr, "Exception (string): %s\n", exception);
+    return 1;
+  }
+  return 0;
+}
+```
+> В этом примере исключение может возникнуть в функции, из `try` блока, но также может возникнуть в функции, вызванной из `line_count_in_file` прямо или косвенно на любую глубину. 
+
+```
+try {
+  //...
+}
+catch(const char *x) {
+  //...
+}
+catch(int x) {
+  //...
+}
+```
+> Если исключение не поймано ни одним из обработчиков, оно выбрасывается дальше, как если бы фрагмент кода, в котором исключение возникло, вовсе не был обрамлен никаким `try` блоком.
+
+### Обработчики с многоточием
+Ловит произвольное исключение вне зависимости от его типа
+```
+int main()
+{
+  try {
+    // код 
+    return 0;
+  }
+  catch(const char *x) {
+    fprintf(stderr, "Exception (string): %s\n", x);
+  }
+  catch(int x) {
+    fprintf(stderr, "Exception (int): %d\n", x);
+  }
+  catch(...) {
+    fprintf(stderr, "Something strange caught\n");
+  }
+  return 1;
+}
+```
+Освобождение памяти при возникновения исключения:
+```
+void f(int n)
+{
+  int *p = new int[n];
+  try {
+    // остальной код функции
+  }
+  catch(...) {
+    delete[] p;
+    throw; // бросает исключение дальше
+  }
+  delete[] p;
+}
+```
+### Объект класса в роли исключения
+Тот объект, который поймается в обработчике исключения, заведомо не может быть тем же экземпляром объекта, который фигурировал в операторе `throw`, и является его копией. Поэтому практически всегда в классе, используемом для исключений, описывают конструктор копирования.
+```
+class FileException {
+  int err_code;
+  char *filename;
+  char *comment;
+public:
+  FileException(const char *fn, const char *cmt);
+  FileException(const FileException& other);
+  ~FileException();
+  const char *GetName() const { return filename; }
+  const char *GetComment() const { return comment; }
+  int GetErrno() const { return err_code; }
+private:
+  static char *strdup(const char *str);
+};
+```
+### Автоматическая очистка 
+Компилятор гарантирует вызов деструкторов для всех локальных объектов, у которых деструкторы есть, прежде чем функция завершится - по исключению ли или обычным путем. **Это называется автоматической очисткой**.
+
+### Преобразование типов исключений
+Любой тип может быть преобразован к ссылке на этот тип, если оператор `throw` использует выражение `A`, то такое исключение может быть обработано `catch` блоком вида `catch(A &ref)`.
+
+
+### Автоматическая очистка
