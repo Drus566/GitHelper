@@ -804,5 +804,343 @@ FdHandler::~FdHandler()
   close(fd);
 }
 
+class EventSelector {
+  FdHandler **fd_array;
+  int fd_array_len;
+  int max_fd;
+  bool quit_flag;
+public:
+  EventSelector() : fd_array(0), quit_flag(false) {}
+  ~EventSelector();
+  void Add(FdHandler *h);
+  bool Remove(FdHandler *h);
+  void BreakLoop() { quit_flag = true; }
+  void Run();
+};
+
+EventSelector::~EventSelector()
+{
+  if(fd_array)
+    delete[] fd_array;
+}
+
+void EventSelector::Add(FdHandler *h)
+{
+  int i;
+  int fd = h->GetFd();
+  if(!fd_array) {
+    fd_array_len = fd > 15 ? fd + 1 : 16;
+    fd_array = new FdHandler*[fd_array_len];
+    for(i = 0; i < fd_array_len; i++)
+      fd_array[i] = 0
+    max_fd = -1;
+  }
+  if(fd_array_len <= fd) {
+    FdHandler **tmp = new FdHandler*[fd+1];
+    for(i = 0; i <= fd; i++)
+      tmp[i] = i < fd_array_len ? fd_array[i] : 0;
+    fd_array_len = fd + 1;
+    delete[] fd_array;
+    fd_array = tmp;
+  }
+  if(fd > max_fd)
+    max_fd = fd;
+  fd_array[fd] = h;
+}
+
+bool EventSelector::Remove(FdHandler *h)
+{
+  int fd = h->GetFd();
+  if(fd >= fd_array_len || fd_array[fd] != h)
+    return false;
+  fd_array[fd] = 0;
+  if(fd == max_fd) {
+    while(max_fd >= 0 && !fd_array[max_fd])
+      max_fd--;
+  }
+  return true;
+}
+
+void EventSelector::Run()
+{
+  quit_flag = false;
+  do {
+    int i;
+    fd_set rds, wrs;
+    FD_ZERO(&rds);
+    FD_ZERO(&wrs);
+    for(i = 0; i <= max_fd; i++) {
+      if(fd_array[i]) {
+        if(fd_array[i]->WantRead())
+          FD_SET(i, &rds);
+        if(fd_array[i]->WantWrite())
+          FD_SET(i, &wrs);
+      }
+    }
+    int res = select(max_fd + 1, &rds, &wrs, 0, 0);
+    if(res < 0) { 
+      if(errno == EINTR)
+        continue;
+      else
+        break;
+    }
+    if(res > 0) {
+      for(i = 0; i <= max_fd; i++) {
+        if(!fd_array[i])
+          continue;
+        bool r = FD_ISSET(i, &rds);
+        bool w = FD_ISSET(i, &wrs);
+        if(r || w)
+          fd_array[i]->Handle(r, w);
+      }
+    }
+  } while(!quit_flag);
+}
+
+class ChatSession : FdHandler {
+  friend class ChatServer;
+  char buffer[max_line_length + 1];
+  int buf_used;
+  bool ignoring;
+  char *name;
+  ChatServer *the_master;
+  
+  ChatSession(ChatServer *a_master, int fd);
+  ~ChatSession();
+  void Send(const char *msg);
+  virtual void Handle(bool r, bool w);
+  void ReadAndIgnore();
+  void ReadAndCheck();
+  void CheckLines();
+  void ProcessLine(const char *str);
+};
+
+class ChatServer : public FdHandler {
+  EventSelector *the_selector;
+  struct item {
+    ChatSession *s;
+    item *next;
+  };
+  item *first;
+  ChatServer(EventSelector *sel, int fd);
+public:
+  ~ChatServer();
+  static ChatServer *Start(EventSelector *sel, int port);
+  void RemoveSession(ChatSession *s);
+  void SendAll(const char *msg, ChatSession *except = 0);
+private:
+  virtual void Handle(bool r, bool w);
+};
+
+ChatServer *ChatServer::Start(EventSelector *sel, int port)
+{
+  int ls, opt, res;
+  struct sockaddr_in addr;
+  ls = socket(AF_INET, SOCK_STREAM, 0);
+  if(ls == -1)
+    return 0;
+  opt = 1;
+  setsockopt(ls, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+  addr.sin_family = AF_INET;
+  addr.sin_addr.s_addr = htonl(INADDR_ANY):
+  addr.sin_port = htons(port);
+  res = bind(ls, (struct sockaddr*) &addr, sizeof(addr));
+  if(res == -1)
+    return 0;
+  res = listen(ls, qlen_for_listen);
+  if(res == -1)
+    return 0;
+  return new ChatServer(sel, ls);
+}
+
+ChatServer::ChatServer(EventSelector *sel, int fd)
+  : FdHandler(fd, true), the_selector(sel), first(0)
+{
+  the_selector->Add(this);
+}
+ChatServer::~ChatServer()
+{
+  while(first) {
+    item *tmp = first;
+    first = first->next;
+    the_selector->Remove(tmp->s);
+    delete tmp->s;
+    delete tmp;
+  }
+  the_selector->Remove(this);
+}
+
+void ChatServer::Handle(bool r, bool w)
+{
+  if(!r) // must not happen
+    return;
+  int sd;
+  struct sockaddr_in addr;
+  socklen_t len = sizeof(addr);
+  sd = accept(GetFd(), (struct sockaddr*) &addr, &len);
+  if(sd == -1)
+    return;
+  item *p = new item;
+  p->next = first;
+  p->s = new ChatSession(this, sd);
+  first = p;
+  the_selector->Add(p->s);
+}
+
+void ChatServer::RemoveSession(ChatSession *s)
+{
+  the_selector->Remove(s);
+  item **p;
+  for(p = &first; *p; p = &((*p)->next)) {
+    if((*p)->s == s) {
+      item *tmp = *p;
+      *p = tmp->next;
+      delete tmp->s;
+      delete tmp;
+      return;
+    }
+  }
+}
+
+void ChatServer::SendAll(const char *msg, ChatSession *except)
+{
+  item *p;
+  for(p = first; p; p = p->next)
+    if(p->s != except)
+      p->s->Send(msg);
+}
+
+void ChatSession::Send(const char *msg)
+{
+  write(GetFd(), msg, strlen(msg));
+}
+
+ChatSession::ChatSession(ChatServer *a_master, int fd)
+  : FdHandler(fd, true), buf_used(0), ignoring(false),
+  name(0), the_master(a_master)
+{
+  Send("Your name please: ");
+}
+
+ChatSession::~ChatSession()
+{ 
+  if(name)
+    delete[] name;
+}
+
+static const char welcome_msg[] = 
+  "Welcome to the chat, you are known as ";
+static const char entered msg[] = " has entered the chat";
+static const char left_msg[] = " has left the chat";
+
+void ChatSession::Handle(bool r, bool w)
+{
+  if(!r) // should never happen
+    return;
+  if(buf_used >= (int)sizeof(buffer)) {
+    buf_used = 0;
+    ignoring = true;
+  }
+  if(ignoring)
+    ReadAndIgnore();
+  else
+    ReadAndCheck();
+}
+
+void ChatSession::ReadAndIgnore()
+{
+  int rc = read(GetFd(), buffer, sizeof(buffer));
+  if(rc < 1) {
+    the_master->RemoveSession(this);
+    return;
+  }
+  int i;
+  for(i = 0; i < rc; i++) {
+    if(buffer[i] == '\n') { // stop ignoring !
+      int rest = rc - i - 1;
+      if(rest > 0)
+        memmove(buffer, buffer + i + 1, rest);
+      buf_used = rest;
+      ignoring = 0;
+      CheckLines();
+    }
+  }
+}
+
+void ChatSession::ReadAndCheck()
+{
+  int rc = 
+    read(GetFd(), buffer+buf_used, sizeof(buffer)-buf_used);
+  if(rc < 1) {
+    if(name) {
+      int len = strlen(name);
+      char *lmsg = new char[len + sizeof(left_msg) + 2];
+      sprintf(lmsg, "%s%s\n", name, left_msg);
+      the_master->SendAll(lmsg, this);
+      delete[] lmsg;
+    }
+    the_master->RemoveSession(this);
+    return;
+  }
+  buf_used += rc;
+  CheckLines();
+}
+
+void ChatSession::CheckLines()
+{
+  if(buf_used <= 0)
+    return;
+  int i;
+  for(i = 0; i < buf_used; i++) {
+    if(buffer[i] == '\n') {
+      buffer[i] = 0;
+      if(i > 0 && buffer[i-1] == '\r')
+        buffer[i-1] = 0;
+      ProcessLine(buffer);
+      int rest = buf_used - i - 1;
+      memmove(buffer, buffer + i + 1, rest);
+      buf_used = rest;
+      CheckLines();
+      return;
+    }
+  }
+}
+
+void ChatSession::ProcessLine(const char *str)
+{
+  int len = strlen(str);
+  if(!name) {
+    name = new char[len+1];
+    strcpy(name, str);
+    char *wmsg = new char[len + sizeof(welcome_msg) + 2];
+    sprintf(wmsg, "%s%s\n", welcome_msg, name);
+    Send(wmsg);
+    delete[] wmsg;
+    char *emsg = new char[len + sizeof(entered_msg) + 2];
+    sprintf(emsg, "%s%s\n", name, entered_msg);
+    the_master->SendAll(emsg, this);
+    delete[] emsg;
+    return;
+  }
+  int nl = strlen(name);
+  char *msg = new char[nl + len + 5];
+  sprintf(msg, "<%s> %s\n", name, str);
+  the_master->SendAll(msg);
+  delete[] msg;
+}
+
+static int port = 7777;
+
+int main()
+{
+  EventSelector *selector = new EventSelector;
+  ChatServer *serv = ChatServer::Start(selector, port);
+  if(!serv) {
+    perror("server");
+    return 1;
+  }
+  selector->Run();
+  return 0;
+}
 ```
 
