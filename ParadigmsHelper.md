@@ -780,3 +780,29 @@ int main()
 193 251 -1 -1
 ```
 
+### Тела функций в заголовке класса
+В заголовке класса могут присутствовать тела функций-членов, весь код которых состоит из одной строки, реже - из двух, в исключительных случаях - из трех строк. Описания функций-членов большего объема следует выносить за пределы описания класса.
+
+### Пример TCP
+```
+class FdHandler {
+  int fd;
+  bool own_fd;
+public:
+  FdHandler(int a_fd, bool own = true)
+    : fd(a_fd), own_fd(own) {}
+  virtual ~FdHandler();
+  virtual void Handle(bool r, bool w) = 0;
+  int GetFd() const { return fd; }
+  virtual bool WantRead() const { return true; }
+  virtual bool WantWrite() const { return false; }
+};
+
+FdHandler::~FdHandler()
+{
+  if(own_fd)
+  close(fd);
+}
+
+```
+
