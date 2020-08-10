@@ -158,4 +158,37 @@ proc quad {x} {
 	return [expr $x * $x]
 }
 ```
+#### Глобальные переменные
+```
+proc x_plus_y {} {
+	global x y 
+	expr $x + $y
+}
 
+set x 25
+set y 36
+x_plus_y
+// 61
+```
+
+#### `upvar`
+`upvar` позволяет ввести в контексте процедуры синонимы для переменных из объемлющего контекста, то есть, из того контекста, откуда процедура была вызвана.
+```
+proc print_and_clear { name } {
+	upvar $name var
+	puts $var
+	set var ""
+}
+```
+```
+proc swap {a b} {
+	upvar $a p $b q
+	set t %p
+	set p $q
+	set q %t
+	return {}
+}
+```
+Уничтожение переменной - `unset`
+
+Существует ли в текущем контексте переменная с заданными именем - `info exists x` возвращает 1 если есть и 0 иначе.
