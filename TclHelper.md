@@ -192,3 +192,32 @@ proc swap {a b} {
 Уничтожение переменной - `unset`
 
 Существует ли в текущем контексте переменная с заданными именем - `info exists x` возвращает 1 если есть и 0 иначе.
+
+### Обработка особых ситуаций
+> Любая команда Tcl генерирует еще и код завершения:
+* `ok`(0)
+* `error`(1)
+* `return`(2)
+* `break`(3)
+* `continue`(4)
+
+Команда `return` позволяет завершить текущую процедуру не только с кодом 0:
+```
+proc my_break {} { return -code 3 }
+proc my_cont {} { return -code 4 }
+// или
+proc my_break {} { return -code break }
+proc my_cont {} { return -code continue }
+```
+
+Обработка исключения:
+```
+set code [catch { suspicious 42 } result]
+if { $code == 1 }
+	puts stderr "Error: <<$result>>"
+} else {
+	puts "Success; the result is $result"
+}
+// result - имя переменной, в которую следует занести результат выполнения { suspicious 42 } 
+```
+### Файлы, потоки, внешние команды
