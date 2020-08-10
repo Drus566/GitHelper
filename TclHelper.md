@@ -131,3 +131,31 @@ foreach d $digits n $dignames {
 }
 ```
 
+### Процедуры и видимость переменных
+```
+proc hello {} {
+	puts "Hello, world"
+}
+// или
+proc "hello" "" "puts \"Hello, world\""
+proc greet {name} {
+	puts "Hello, dear $name, I'm pleased to meet you!"
+}
+
+greet Vasya
+greet {G W}
+greet "Mister X"
+
+Hello, dear Vasya, I'm pleased to meet you!
+Hello, dear G W, I'm pleased to meet you!
+Hello, dear Mister X, I'm pleased to meet you!
+```
+
+```
+proc quad {x} { expr $x * $x }
+// то же самое
+proc quad {x} {
+	return [expr $x * $x]
+}
+```
+
