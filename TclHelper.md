@@ -73,4 +73,61 @@ lindex $str 1 // выдаст shwab ra
 
 > Фигурный скобки - это строка. Внутри фигурных скобок все символы обозначают сами себя.
 
+```
+set b 100
+set tt [if $b "puts YES ; expr 10" "puts NO ; expr 20"]
+puts "result is $tt"
+// если b != 0 , то выведет 10, иначе 20
+```
+
+Циклы
+```
+set n 0 
+while { $n < $argc } {
+  puts "parameter $n is [lindex $argv $n]"
+  set n [expr $n + 1]
+}
+```
+
+```
+for { set n 0 } { $n < $argc } { set n [expr $n + 1] } {
+  puts "Parameter $n is [lindex $argv $n]"
+}
+// или
+for { set n 0 } { $n < $argc } { incr n } {
+  puts "Parameter $n is [lindex $argv $n]"
+}
+```
+
+#### foreach
+```
+foreach a $argv {
+  puts "We've got $a as a command line argument"
+}
+```
+
+Перебор списка (по 3 элемента)
+```
+set greek {
+  alpha beta gamma delta epsilon zeta eta
+  theta iota kappa lambda mu nu xi omicron
+  pi rho sigma tau upsilon phi chi psi omega
+}
+foreach { x y z } $greek {
+  puts "$x $y $z"
+}
+```
+Перебор списка (по 2 элемента)
+```
+#!/usr/bin/tclsh
+# list1.tcl
+set digits {0 1 2 3 4 5 6 7 8 9}
+set dignames {
+	zero one two three four
+	five six seven eight nine
+}
+foreach d $digits n $dignames {
+	puts "$d read ''$n''"
+}
+```
 
