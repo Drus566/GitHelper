@@ -261,5 +261,5 @@ Ctrl + D
 # Добавление в конец
 echo "/dist" >> .gitignore
 # Перезапись
-echo "/dist" >> .gitignore
+echo "/dist" > .gitignore
 ```
