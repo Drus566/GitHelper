@@ -356,3 +356,31 @@ CTRL + w, =: Делает все расколы равным размером
 grep -rno --exclude-dir={dir1,dir2,dir3} "searchterm" *
 vim $(!! -l)
 ```
+
+### Открытие и слежка за концом файла
+```
+tail -f logfile
+```
+
+### Отправление информации в поток ошибок файла 
+```
+echoe "new line 3" >> logfile 2>&1
+```
+
+### Открытие конфига планировщика задач
+```
+crontab -e
+```
+> https://crontab.guru - сайт планировщика
+
+### Ссылка на интерпретатор языка программирования
+```
+which <язык программирования>
+which python3
+which ruby
+```
+
+### Настройка на запуск скрипта каждую минуту с помощью `crontab`
+```
+* * * * * /usr/bin/python3 /home/admin/python_script.py >> /home/admin/logfile 2>&1 
+```
