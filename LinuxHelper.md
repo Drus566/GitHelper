@@ -398,3 +398,4 @@ nohup python3 -u endless.py &
 ### Вывод портов
 ```
 sudo netstat -tupln
+```
