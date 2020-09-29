@@ -395,3 +395,6 @@ ps aux | grep "[e]ndless.py"
 nohup python3 -u endless.py &
 ```
 
+### Вывод портов
+```
+sudo netstat -tupln
