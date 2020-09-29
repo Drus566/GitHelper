@@ -384,3 +384,14 @@ which ruby
 ```
 * * * * * /usr/bin/python3 /home/admin/python_script.py >> /home/admin/logfile 2>&1 
 ```
+
+### Поиск через `ps aux | grep` без запросов в баш
+```
+ps aux | grep "[e]ndless.py"
+```
+
+> Питоновские скрипты не буфиризуют когда вводишь флаг `-u`. Например:
+```
+nohup python3 -u endless.py &
+```
+
