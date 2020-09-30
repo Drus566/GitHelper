@@ -399,3 +399,29 @@ nohup python3 -u endless.py &
 ```
 sudo netstat -tupln
 ```
+
+### Вывод запущенных сервисов
+```
+systemdctl list-unit-files | grep enabled
+```
+
+### Перезагрузка `systemdctrl`
+```
+sudo systemctl daemon-reload
+```
+
+### Запуск сервиса
+```
+systemctl start mysite.service
+```
+
+### Статус сервиса
+```
+systemctrl status mysite.service
+```
+
+### Просмотр журнала `ctl`
+```
+journalctl -u <service> 
+```
+
