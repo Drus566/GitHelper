@@ -432,3 +432,5 @@ systemctrl status mysite.service
 journalctl -u <service> 
 ```
 
+### Выполнение скрипта
+`sh <скрипт>`
