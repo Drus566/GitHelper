@@ -29,3 +29,28 @@ sudo -u postgres psql
 \d имя_таблицы - показать информацию о таблице
 \password chris - установка пароля для пользователя chris 
 ```
+
+## Linux Фишечки
+### Создать строку  
+`select 'hello world;`
+### Создать столбец с строкой
+`select 'hello world' as col1;`
+### Создать таблицу 
+`create table test_table as select 'hello world' as col1;`
+> Создается по умолчанию в схеме `public`
+### Выбор записи из таблицы 
+`select * from test_table;`
+### Создание юзера 
+`CREATE USER drug;`
+### Создание пароля для юзера
+`\password drug`
+### Просмотр ролей 
+`\du`
+### Подключение к удаленной базе данных
+`psql -U drug -d postgres -h 127.0.0.1 -W`
+### Выдача прав на работу с таблицей 
+`grant select on table test_table to drug;`
+### Создание схемы
+`create schema secret`
+### Выдача прав на работу со схемой
+`grant usage on schema secret to drug;`
